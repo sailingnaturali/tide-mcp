@@ -1,7 +1,17 @@
 from datetime import datetime, timezone
 
 from tide_mcp.providers import CurrentEvent
-from tide_mcp.tools import _haversine_nm, _slack_windows
+from tide_mcp.tools import _direction_label, _fmt_slack, _haversine_nm, _slack_windows
+
+
+def test_direction_label_no_neighbors():
+    assert _direction_label(None, None) == "slack"
+
+
+def test_fmt_slack_string():
+    # DISPLAY_TZ is hardcoded to America/Vancouver, so this is locale-independent.
+    utc = datetime(2026, 5, 24, 13, 14, tzinfo=timezone.utc)
+    assert _fmt_slack(utc, "ebb→flood") == "Sun 06:14 PDT (slack, ebb→flood)"
 
 
 def test_haversine_zero_distance():
