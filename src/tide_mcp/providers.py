@@ -57,6 +57,50 @@ def _iso_z(dt: datetime) -> str:
     return dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+NOAA_BASE = "https://api.tidesandcurrents.noaa.gov/api/prod/datagetter"
+
+
+def _parse_noaa_time(s: str) -> datetime:
+    """NOAA 'YYYY-MM-DD HH:MM' is UTC when requested with time_zone=gmt."""
+    return datetime.strptime(s, "%Y-%m-%d %H:%M").replace(tzinfo=timezone.utc)
+
+
+async def fetch_noaa_events(
+    client: RateLimitedClient, station_id: str, bin_n: int, start: datetime, end: datetime
+) -> list[CurrentEvent]:
+    """Fetch NOAA CO-OPS current predictions (slack/flood/ebb) for a station+bin."""
+    params = {
+        "product": "currents_predictions",
+        "interval": "MAX_SLACK",
+        "time_zone": "gmt",
+        "units": "english",
+        "format": "json",
+        "application": "tide-mcp",
+        "station": station_id,
+        "bin": str(bin_n),
+        "begin_date": start.astimezone(timezone.utc).strftime("%Y%m%d"),
+        "end_date": end.astimezone(timezone.utc).strftime("%Y%m%d"),
+    }
+    resp = await client.get(NOAA_BASE, params=params)
+    resp.raise_for_status()
+    cp = resp.json().get("current_predictions", {}).get("cp", [])
+    events: list[CurrentEvent] = []
+    for row in cp:
+        kind = str(row.get("Type", "")).lower()
+        if kind not in ("slack", "flood", "ebb"):
+            continue
+        events.append(
+            CurrentEvent(
+                utc=_parse_noaa_time(row["Time"]),
+                kind=kind,
+                speed_knots=abs(float(row.get("Velocity_Major", 0.0))),
+                flood_dir=row.get("meanFloodDir"),
+                ebb_dir=row.get("meanEbbDir"),
+            )
+        )
+    return events
+
+
 async def fetch_chs_events(
     client: RateLimitedClient, station_id: str, start: datetime, end: datetime
 ) -> list[CurrentEvent]:
