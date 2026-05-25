@@ -3,6 +3,8 @@ name = "tide-mcp"
 version = "0.1.0"
 description = "MCP server exposing PNW tidal-gate slack windows as agent tools"
 readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
 authors = [
     { name = "Bryan Clark", email = "clarkbw@gmail.com" }
 ]
