@@ -44,3 +44,28 @@ def test_slack_windows_respects_after_and_limit():
     windows = _slack_windows(events, 1, after)
     assert len(windows) == 1
     assert windows[0]["utc"] == "2026-05-24T08:00:00Z"
+
+
+from tide_mcp.passages import GATES
+from tide_mcp.tools import _recommended_depart, VICTORIA
+
+
+def test_recommended_depart_backs_off_travel_time():
+    # Gate ~47 nm from Victoria at 6 kn -> ~7.8 h travel.
+    # Slack at 20:00 UTC; leaving now (00:00) arrives ~07:48, before slack,
+    # so recommended depart = slack - travel ~= 12:12 UTC.
+    gate = GATES["Dodd Narrows"]
+    slack = datetime(2026, 5, 24, 20, 0, tzinfo=timezone.utc)
+    events = [CurrentEvent(slack, "slack", 0.0)]
+    depart = datetime(2026, 5, 24, 0, 0, tzinfo=timezone.utc)
+    text = _recommended_depart(gate, events, depart, VICTORIA)
+    assert text is not None
+    assert "Dodd Narrows" in text and "Depart by" in text
+
+
+def test_recommended_depart_none_when_no_reachable_slack():
+    gate = GATES["Dodd Narrows"]
+    # Only slack is in the past relative to arrival.
+    events = [CurrentEvent(datetime(2026, 5, 24, 1, 0, tzinfo=timezone.utc), "slack", 0.0)]
+    depart = datetime(2026, 5, 24, 0, 0, tzinfo=timezone.utc)
+    assert _recommended_depart(gate, events, depart, VICTORIA) is None

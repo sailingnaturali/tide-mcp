@@ -7,9 +7,10 @@ the model never sees raw UTC or SI values to reformat.
 from __future__ import annotations
 
 import math
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
+from tide_mcp.passages import Gate
 from tide_mcp.providers import CurrentEvent, _iso_z
 
 VICTORIA = (48.42, -123.37)
@@ -68,3 +69,20 @@ def _slack_windows(events: list[CurrentEvent], limit: int, after: datetime) -> l
         if len(windows) >= limit:
             break
     return windows
+
+
+def _recommended_depart(
+    gate: Gate, events: list[CurrentEvent], depart_time: datetime, origin: tuple[float, float]
+) -> str | None:
+    """Recommend a departure time to hit the FIRST gate at its next reachable slack.
+
+    v1 estimate: great-circle distance from origin at a fixed 6 knots.
+    """
+    dist_nm = _haversine_nm(origin[0], origin[1], gate.latitude, gate.longitude)
+    travel = timedelta(hours=dist_nm / DEFAULT_SPEED_KNOTS)
+    earliest_arrival = depart_time + travel
+    slack = next((e for e in events if e.kind == "slack" and e.utc >= earliest_arrival), None)
+    if slack is None:
+        return None
+    depart_by = (slack.utc - travel).astimezone(DISPLAY_TZ)
+    return f"Depart by {depart_by:%H:%M} {depart_by:%Z} to hit {gate.name} at slack."
