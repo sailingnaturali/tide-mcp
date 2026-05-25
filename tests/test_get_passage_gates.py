@@ -49,9 +49,12 @@ async def test_passage_unknown_destination(tmp_path):
 
 
 async def test_passage_noaa_gate_unavailable(tmp_path):
+    # ProviderNotImplemented fires before any HTTP call, so no respx mock is needed.
     cache = EventCache(str(tmp_path / "c.sqlite")); cache.init_schema()
     client = RateLimitedClient()
     result = await get_passage_gates(client, cache, "Friday Harbor")
     await client.aclose(); cache.close()
     assert result["gates"][0]["slack_windows"] == []
     assert "not yet available" in result["gates"][0]["note_display"]
+    # Summary must not contradict the gate: it surfaces the NOAA note, not "check slack windows".
+    assert "not yet available" in result["summary_display"]

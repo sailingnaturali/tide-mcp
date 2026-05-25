@@ -185,6 +185,10 @@ async def get_passage_gates(
         gates_out.append(entry)
 
     first = gates_out[0]
-    lead = first.get("recommended_depart_display") or "Check the first gate's slack windows."
+    lead = (
+        first.get("recommended_depart_display")
+        or first.get("note_display")
+        or "Check the first gate's slack windows."
+    )
     summary = f"{len(gates_out)} tidal gate(s). {lead}"
     return {"destination": passage.destination, "gates": gates_out, "summary_display": summary}
