@@ -13,7 +13,7 @@ from zoneinfo import ZoneInfo
 from tide_mcp.cache import EventCache
 from tide_mcp.client import RateLimitedClient
 from tide_mcp.fetch import ProviderNotImplemented, gate_events
-from tide_mcp.passages import GATES, Gate, PASSAGES, find_gate, match_destination
+from tide_mcp.passages import GATES, Gate, PASSAGES, coverage, find_gate, match_destination
 from tide_mcp.providers import CurrentEvent, _iso_z, _parse_dt
 
 VICTORIA = (48.42, -123.37)
@@ -192,3 +192,12 @@ async def get_passage_gates(
     )
     summary = f"{len(gates_out)} tidal gate(s). {lead}"
     return {"destination": passage.destination, "gates": gates_out, "summary_display": summary}
+
+
+def list_gates() -> dict:
+    """Return known destinations and the gates they cover."""
+    cov = coverage()
+    display = "Covered destinations: " + "; ".join(
+        f"{c['destination']} ({', '.join(c['gates']) or 'no gates'})" for c in cov
+    )
+    return {"coverage": cov, "display": display}
