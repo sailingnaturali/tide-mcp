@@ -13,7 +13,7 @@ from tide_mcp.providers import CurrentEvent, fetch_chs_events, fetch_noaa_events
 
 
 class ProviderNotImplemented(Exception):
-    """Raised when a gate's provider has no fetcher wired up yet (e.g. NOAA in v1)."""
+    """Raised when a gate's provider value has no registered fetcher."""
 
 
 def _query_days(start: datetime, n: int) -> list[date]:

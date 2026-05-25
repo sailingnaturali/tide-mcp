@@ -12,14 +12,13 @@ from zoneinfo import ZoneInfo
 
 from tide_mcp.cache import EventCache
 from tide_mcp.client import RateLimitedClient
-from tide_mcp.fetch import ProviderNotImplemented, gate_events
+from tide_mcp.fetch import gate_events
 from tide_mcp.passages import GATES, Gate, PASSAGES, coverage, find_gate, match_destination
 from tide_mcp.providers import CurrentEvent, _iso_z, _parse_dt
 
 VICTORIA = (48.42, -123.37)
 DEFAULT_SPEED_KNOTS = 6.0
 DISPLAY_TZ = ZoneInfo("America/Vancouver")
-_NOAA_UNAVAILABLE = "US current data (NOAA) not yet available."
 _OPEN_WATER_SUMMARY = (
     "No tidal gates on the direct route - open-water passage; "
     "wind and weather are the constraint."
@@ -118,10 +117,7 @@ async def get_tidal_gate(
     if gate is None:
         return {"unmatched": True, "suggestions_display": _gate_suggestions()}
     after = _parse_dt_arg(date)
-    try:
-        events = await gate_events(client, cache, gate, after)
-    except ProviderNotImplemented:
-        return {"name": gate.name, "slack_windows": [], "note_display": _NOAA_UNAVAILABLE}
+    events = await gate_events(client, cache, gate, after)
     return {
         "name": gate.name,
         "slack_windows": _slack_windows(events, 3, after),
@@ -160,16 +156,7 @@ async def get_passage_gates(
     gates_out: list[dict] = []
     for idx, gname in enumerate(passage.gate_names):
         gate = GATES[gname]
-        try:
-            events = await gate_events(client, cache, gate, depart)
-        except ProviderNotImplemented:
-            gates_out.append({
-                "name": gate.name,
-                "slack_windows": [],
-                "recommended_depart_display": None,
-                "note_display": _NOAA_UNAVAILABLE,
-            })
-            continue
+        events = await gate_events(client, cache, gate, depart)
         entry = {
             "name": gate.name,
             "slack_windows": _slack_windows(events, 3, depart),
