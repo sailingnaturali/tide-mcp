@@ -11,6 +11,12 @@ import sqlite3
 
 
 class EventCache:
+    """SQLite key->JSON store. Call init_schema() once before get/put.
+
+    All access is synchronous and expected on a single thread (the MCP server's
+    event-loop thread).
+    """
+
     def __init__(self, path: str) -> None:
         self.path = path
         self._conn = sqlite3.connect(path)
