@@ -7,3 +7,5 @@ def test_list_gates_reports_coverage():
     assert "Nanaimo" in dests
     assert "Friday Harbor" in dests
     assert isinstance(result["display"], str) and "Nanaimo" in result["display"]
+    # Open-water destinations (empty gate list) render the "no gates" fallback.
+    assert "no gates" in result["display"]
