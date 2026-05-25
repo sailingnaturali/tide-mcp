@@ -33,7 +33,28 @@ async def test_gate_events_fetches_and_caches(tmp_path):
 
     assert [e.kind for e in first] == ["slack", "ebb"]
     assert second == first
+    assert calls_after_first == 1  # first call fetched exactly once
     assert route.call_count == calls_after_first  # second call served from cache
+
+
+@respx.mock
+async def test_gate_events_caches_empty_day(tmp_path):
+    # A day with zero events must cache as [] and NOT be re-fetched.
+    route = respx.get("https://api-sine.dfo-mpo.gc.ca/api/v1/stations/63aef1866a2b9417c035030f/data").mock(
+        return_value=httpx.Response(200, json=[])
+    )
+    cache = EventCache(str(tmp_path / "c.sqlite"))
+    cache.init_schema()
+    client = RateLimitedClient()
+    start = datetime(2026, 5, 24, 12, 0, tzinfo=timezone.utc)
+
+    first = await gate_events(client, cache, GATES["Dodd Narrows"], start, n_days=1)
+    second = await gate_events(client, cache, GATES["Dodd Narrows"], start, n_days=1)
+    await client.aclose()
+    cache.close()
+
+    assert first == [] and second == []
+    assert route.call_count == 1  # empty day cached, not re-fetched
 
 
 async def test_gate_events_raises_for_noaa_in_v1(tmp_path):
