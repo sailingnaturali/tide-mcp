@@ -35,11 +35,21 @@ async def test_get_tidal_gate_unknown_name_suggests(tmp_path):
     assert "Dodd Narrows" in result["suggestions_display"]
 
 
+NOAA_DAY = {"current_predictions": {"cp": [
+    {"Type": "ebb", "Time": "2026-05-24 06:00", "Velocity_Major": -2.0, "meanFloodDir": 3, "meanEbbDir": 236},
+    {"Type": "slack", "Time": "2026-05-24 09:00", "Velocity_Major": 0, "meanFloodDir": 3, "meanEbbDir": 236},
+    {"Type": "flood", "Time": "2026-05-24 12:00", "Velocity_Major": 2.0, "meanFloodDir": 3, "meanEbbDir": 236},
+]}}
+
+
 @respx.mock
-async def test_get_tidal_gate_noaa_unavailable_in_v1(tmp_path):
+async def test_get_tidal_gate_boundary_pass_via_noaa(tmp_path):
+    respx.get(url__regex=r".*api.tidesandcurrents.noaa.gov.*").mock(
+        return_value=httpx.Response(200, json=NOAA_DAY)
+    )
     cache = EventCache(str(tmp_path / "c.sqlite")); cache.init_schema()
     client = RateLimitedClient()
     result = await get_tidal_gate(client, cache, "Boundary Pass", date="2026-05-24")
     await client.aclose(); cache.close()
-    assert result["slack_windows"] == []
-    assert "not yet available" in result["note_display"]
+    assert result["name"] == "Boundary Pass"
+    assert result["slack_windows"][0]["utc"] == "2026-05-24T09:00:00Z"

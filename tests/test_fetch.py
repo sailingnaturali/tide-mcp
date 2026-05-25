@@ -1,3 +1,4 @@
+from dataclasses import replace
 from datetime import datetime, timezone
 
 import httpx
@@ -57,12 +58,29 @@ async def test_gate_events_caches_empty_day(tmp_path):
     assert route.call_count == 1  # empty day cached, not re-fetched
 
 
-async def test_gate_events_raises_for_noaa_in_v1(tmp_path):
-    cache = EventCache(str(tmp_path / "c.sqlite"))
-    cache.init_schema()
+NOAA_DAY = {"current_predictions": {"cp": [
+    {"Type": "slack", "Time": "2026-05-24 08:42", "Velocity_Major": 0,
+     "meanFloodDir": 3, "meanEbbDir": 236},
+]}}
+
+
+@respx.mock
+async def test_gate_events_uses_noaa_for_boundary_pass(tmp_path):
+    respx.get(url__regex=r".*api.tidesandcurrents.noaa.gov.*").mock(
+        return_value=httpx.Response(200, json=NOAA_DAY)
+    )
+    cache = EventCache(str(tmp_path / "c.sqlite")); cache.init_schema()
+    client = RateLimitedClient()
+    events = await gate_events(client, cache, GATES["Boundary Pass"],
+                               datetime(2026, 5, 24, tzinfo=timezone.utc), n_days=1)
+    await client.aclose(); cache.close()
+    assert [e.kind for e in events] == ["slack"]
+
+
+async def test_gate_events_raises_for_unknown_provider(tmp_path):
+    bogus = replace(GATES["Dodd Narrows"], provider="bogus")
+    cache = EventCache(str(tmp_path / "c.sqlite")); cache.init_schema()
     client = RateLimitedClient()
     with pytest.raises(ProviderNotImplemented):
-        await gate_events(client, cache, GATES["Boundary Pass"],
-                          datetime(2026, 5, 24, tzinfo=timezone.utc), n_days=1)
-    await client.aclose()
-    cache.close()
+        await gate_events(client, cache, bogus, datetime(2026, 5, 24, tzinfo=timezone.utc), n_days=1)
+    await client.aclose(); cache.close()

@@ -48,13 +48,23 @@ async def test_passage_unknown_destination(tmp_path):
     assert "suggestions_display" in result
 
 
-async def test_passage_noaa_gate_unavailable(tmp_path):
-    # ProviderNotImplemented fires before any HTTP call, so no respx mock is needed.
+NOAA_DAY = {"current_predictions": {"cp": [
+    {"Type": "ebb", "Time": "2026-05-24 06:00", "Velocity_Major": -2.0, "meanFloodDir": 3, "meanEbbDir": 236},
+    {"Type": "slack", "Time": "2026-05-24 09:00", "Velocity_Major": 0, "meanFloodDir": 3, "meanEbbDir": 236},
+    {"Type": "flood", "Time": "2026-05-24 12:00", "Velocity_Major": 2.0, "meanFloodDir": 3, "meanEbbDir": 236},
+]}}
+
+
+@respx.mock
+async def test_passage_friday_harbor_via_noaa(tmp_path):
+    respx.get(url__regex=r".*api.tidesandcurrents.noaa.gov.*").mock(
+        return_value=httpx.Response(200, json=NOAA_DAY)
+    )
     cache = EventCache(str(tmp_path / "c.sqlite")); cache.init_schema()
     client = RateLimitedClient()
-    result = await get_passage_gates(client, cache, "Friday Harbor")
+    result = await get_passage_gates(client, cache, "Friday Harbor",
+                                     depart_time="2026-05-24T00:00:00Z")
     await client.aclose(); cache.close()
-    assert result["gates"][0]["slack_windows"] == []
-    assert "not yet available" in result["gates"][0]["note_display"]
-    # Summary must not contradict the gate: it surfaces the NOAA note, not "check slack windows".
-    assert "not yet available" in result["summary_display"]
+    assert result["gates"][0]["name"] == "Boundary Pass"
+    assert len(result["gates"][0]["slack_windows"]) >= 1
+    assert "not yet available" not in result["summary_display"]
