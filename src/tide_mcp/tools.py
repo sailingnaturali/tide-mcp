@@ -13,13 +13,17 @@ from zoneinfo import ZoneInfo
 from tide_mcp.cache import EventCache
 from tide_mcp.client import RateLimitedClient
 from tide_mcp.fetch import ProviderNotImplemented, gate_events
-from tide_mcp.passages import GATES, Gate, find_gate
+from tide_mcp.passages import GATES, Gate, PASSAGES, find_gate, match_destination
 from tide_mcp.providers import CurrentEvent, _iso_z, _parse_dt
 
 VICTORIA = (48.42, -123.37)
 DEFAULT_SPEED_KNOTS = 6.0
 DISPLAY_TZ = ZoneInfo("America/Vancouver")
 _NOAA_UNAVAILABLE = "US current data (NOAA) not yet available."
+_OPEN_WATER_SUMMARY = (
+    "No tidal gates on the direct route - open-water passage; "
+    "wind and weather are the constraint."
+)
 
 
 def _haversine_nm(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
@@ -123,3 +127,71 @@ async def get_tidal_gate(
         "slack_windows": _slack_windows(events, 3, after),
         "transit_window_minutes": gate.transit_window_minutes,
     }
+
+
+def _destination_suggestions() -> str:
+    return "Known destinations: " + ", ".join(p.destination for p in PASSAGES) + "."
+
+
+async def get_passage_gates(
+    client: RateLimitedClient,
+    cache: EventCache,
+    destination: str,
+    depart_time: str | None = None,
+    from_lat: float | None = None,
+    from_lon: float | None = None,
+) -> dict:
+    """Map a destination to its ordered gates, fetch slack windows, recommend a
+    departure for the first gate."""
+    passage = match_destination(destination)
+    if passage is None:
+        return {"unmatched": True, "suggestions_display": _destination_suggestions()}
+
+    depart = _parse_dt_arg(depart_time)
+    origin = (from_lat, from_lon) if from_lat is not None and from_lon is not None else VICTORIA
+
+    if not passage.gate_names:
+        return {
+            "destination": passage.destination,
+            "gates": [],
+            "summary_display": _OPEN_WATER_SUMMARY,
+        }
+
+    gates_out: list[dict] = []
+    for idx, gname in enumerate(passage.gate_names):
+        gate = GATES[gname]
+        try:
+            events = await gate_events(client, cache, gate, depart)
+        except ProviderNotImplemented:
+            gates_out.append({
+                "name": gate.name,
+                "slack_windows": [],
+                "recommended_depart_display": None,
+                "note_display": _NOAA_UNAVAILABLE,
+            })
+            continue
+        entry = {
+            "name": gate.name,
+            "slack_windows": _slack_windows(events, 3, depart),
+            "transit_window_minutes": gate.transit_window_minutes,
+        }
+        if idx == 0:
+            rec = _recommended_depart(gate, events, depart, origin)
+            if rec is None:
+                # Fallback: show first upcoming slack even if travel math can't confirm arrival.
+                first_slack = next((e for e in events if e.kind == "slack" and e.utc >= depart), None)
+                if first_slack is not None:
+                    local = first_slack.utc.astimezone(DISPLAY_TZ)
+                    rec = f"Next slack at {gate.name}: {local:%a %H:%M} {local:%Z} — depart early to arrive at slack."
+            entry["recommended_depart_display"] = rec
+        else:
+            entry["recommended_depart_display"] = None
+            entry["note_display"] = (
+                "Slack windows shown for planning; v1 does not compute multi-gate departure."
+            )
+        gates_out.append(entry)
+
+    first = gates_out[0]
+    lead = first.get("recommended_depart_display") or "Check the first gate's slack windows."
+    summary = f"{len(gates_out)} tidal gate(s). {lead}"
+    return {"destination": passage.destination, "gates": gates_out, "summary_display": summary}
