@@ -1,7 +1,16 @@
+import re
 from datetime import datetime, timezone
 
+from tide_mcp.passages import GATES
 from tide_mcp.providers import CurrentEvent
-from tide_mcp.tools import _direction_label, _fmt_slack, _haversine_nm, _slack_windows
+from tide_mcp.tools import (
+    VICTORIA,
+    _direction_label,
+    _fmt_slack,
+    _haversine_nm,
+    _recommended_depart,
+    _slack_windows,
+)
 
 
 def test_direction_label_no_neighbors():
@@ -46,10 +55,6 @@ def test_slack_windows_respects_after_and_limit():
     assert windows[0]["utc"] == "2026-05-24T08:00:00Z"
 
 
-from tide_mcp.passages import GATES
-from tide_mcp.tools import _recommended_depart, VICTORIA
-
-
 def test_recommended_depart_backs_off_travel_time():
     # Gate ~47 nm from Victoria at 6 kn -> ~7.8 h travel.
     # Slack at 20:00 UTC; leaving now (00:00) arrives ~07:48, before slack,
@@ -61,6 +66,9 @@ def test_recommended_depart_backs_off_travel_time():
     text = _recommended_depart(gate, events, depart, VICTORIA)
     assert text is not None
     assert "Dodd Narrows" in text and "Depart by" in text
+    # The slack is 20:00 UTC = 13:00 PDT; the back-off must put departure earlier.
+    hhmm = re.search(r"Depart by (\d{2}:\d{2})", text).group(1)
+    assert hhmm < "13:00"
 
 
 def test_recommended_depart_none_when_no_reachable_slack():
