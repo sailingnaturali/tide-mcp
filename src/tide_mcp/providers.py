@@ -93,7 +93,7 @@ async def fetch_noaa_events(
             CurrentEvent(
                 utc=_parse_noaa_time(row["Time"]),
                 kind=kind,
-                speed_knots=abs(float(row.get("Velocity_Major", 0.0))),
+                speed_knots=abs(float(row["Velocity_Major"])),
                 flood_dir=row.get("meanFloodDir"),
                 ebb_dir=row.get("meanEbbDir"),
             )

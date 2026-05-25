@@ -76,3 +76,23 @@ async def test_fetch_noaa_events_parses_signed_velocity():
     assert [e.kind for e in events] == ["slack", "flood", "ebb"]
     assert events[2].kind == "ebb" and events[2].speed_knots == 1.35  # abs of -1.35
     assert events[0].flood_dir == 3 and events[0].ebb_dir == 236
+
+
+@respx.mock
+async def test_fetch_noaa_events_skips_unknown_type():
+    payload = {"current_predictions": {"cp": [
+        *NOAA["current_predictions"]["cp"],
+        {"Type": "other", "Time": "2026-05-24 14:00", "Velocity_Major": 1.0,
+         "meanFloodDir": 3, "meanEbbDir": 236},
+    ]}}
+    respx.get(url__regex=r".*api.tidesandcurrents.noaa.gov.*").mock(
+        return_value=httpx.Response(200, json=payload)
+    )
+    client = RateLimitedClient()
+    start = datetime(2026, 5, 24, tzinfo=timezone.utc)
+    end = datetime(2026, 5, 25, tzinfo=timezone.utc)
+    events = await fetch_noaa_events(client, "PUG1717", 35, start, end)
+    await client.aclose()
+
+    assert len(events) == 3  # the "other" Type row is skipped
+    assert [e.kind for e in events] == ["slack", "flood", "ebb"]
