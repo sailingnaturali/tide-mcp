@@ -44,6 +44,11 @@ _GATE_LIST = [
 
 GATES: dict[str, Gate] = {g.name: g for g in _GATE_LIST}
 
+# Active Pass, Porlier Pass, Gabriola Passage, and Hole in the Wall are reachable
+# via get_tidal_gate by name but are intentionally not on any Victoria-origin route:
+# the Gulf Islands passes gate crossings from the Strait/Vancouver side, and Hole in
+# the Wall is an alternate Discovery Islands gate. Wire passages for them if/when a
+# routing direction is confirmed.
 PASSAGES: tuple[Passage, ...] = (
     Passage("Nanaimo", ("nanaimo", "newcastle island"),
             ("Dodd Narrows",), "Protected inside route; Dodd is the final gate."),
