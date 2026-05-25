@@ -167,7 +167,7 @@ async def get_passage_gates(
         else:
             entry["recommended_depart_display"] = None
             entry["note_display"] = (
-                "Slack windows shown for planning; v1 does not compute multi-gate departure."
+                "Slack windows shown for planning; the recommended departure covers the first gate only."
             )
         gates_out.append(entry)
 

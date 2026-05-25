@@ -34,7 +34,7 @@ Example response:
       ],
       "transit_window_minutes": 20,
       "recommended_depart_display": null,
-      "note_display": "Slack windows shown for planning; v1 does not compute multi-gate departure."
+      "note_display": "Slack windows shown for planning; the recommended departure covers the first gate only."
     }
   ],
   "summary_display": "2 tidal gate(s). Depart by 18:45 PDT to hit Gillard Passage at slack."
