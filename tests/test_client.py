@@ -23,5 +23,5 @@ async def test_limiter_sleeps_when_window_full():
         await client.get("https://example.test/x")
         await client.get("https://example.test/x")  # third call must wait
 
-    assert slept, "third call should have slept until the window cleared"
+    assert slept == [60.0], "third call should sleep until the oldest slot ages out"
     await client.aclose()

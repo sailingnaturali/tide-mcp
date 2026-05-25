@@ -1,4 +1,8 @@
-"""Rate-limited async HTTP client honoring CHS limits (3 req/sec, 30 req/min)."""
+"""Async HTTP client with a single sliding-window request limiter.
+
+Defaults to 30 requests per 60s to stay under the CHS cap. tide-mcp makes only
+1-3 serialized calls per request, so a separate per-second limiter is unneeded.
+"""
 
 from __future__ import annotations
 
