@@ -176,14 +176,7 @@ async def get_passage_gates(
             "transit_window_minutes": gate.transit_window_minutes,
         }
         if idx == 0:
-            rec = _recommended_depart(gate, events, depart, origin)
-            if rec is None:
-                # Fallback: show first upcoming slack even if travel math can't confirm arrival.
-                first_slack = next((e for e in events if e.kind == "slack" and e.utc >= depart), None)
-                if first_slack is not None:
-                    local = first_slack.utc.astimezone(DISPLAY_TZ)
-                    rec = f"Next slack at {gate.name}: {local:%a %H:%M} {local:%Z} — depart early to arrive at slack."
-            entry["recommended_depart_display"] = rec
+            entry["recommended_depart_display"] = _recommended_depart(gate, events, depart, origin)
         else:
             entry["recommended_depart_display"] = None
             entry["note_display"] = (

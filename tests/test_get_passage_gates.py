@@ -5,10 +5,12 @@ from tide_mcp.cache import EventCache
 from tide_mcp.client import RateLimitedClient
 from tide_mcp.tools import get_passage_gates
 
+# Gillard Passage is ~137 nm from Victoria -> ~23h at 6 kn. Departing 2026-05-24T00:00Z,
+# the earliest reachable slack must be ~23h out, so the slack lands on 2026-05-25.
 DAY = [
-    {"eventDate": "2026-05-24T06:14:00Z", "qualifier": "EXTREMA_EBB", "value": 5.0},
-    {"eventDate": "2026-05-24T20:00:00Z", "qualifier": "SLACK", "value": 0.0},
-    {"eventDate": "2026-05-24T23:00:00Z", "qualifier": "EXTREMA_FLOOD", "value": 6.0},
+    {"eventDate": "2026-05-25T00:00:00Z", "qualifier": "EXTREMA_EBB", "value": 5.0},
+    {"eventDate": "2026-05-25T02:00:00Z", "qualifier": "SLACK", "value": 0.0},
+    {"eventDate": "2026-05-25T05:00:00Z", "qualifier": "EXTREMA_FLOOD", "value": 6.0},
 ]
 
 
