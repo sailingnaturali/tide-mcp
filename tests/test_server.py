@@ -1,4 +1,5 @@
 import httpx
+import pytest
 import respx
 
 from tide_mcp.cache import EventCache
@@ -15,11 +16,12 @@ def test_tool_names():
     assert TOOL_NAMES == ["get_passage_gates", "get_tidal_gate", "list_gates"]
 
 
-def test_build_server_names_it():
+async def test_build_server_names_it():
     cache = EventCache(":memory:"); cache.init_schema()
     client = RateLimitedClient()
     server = build_server(client, cache)
     assert server.name == "tide-mcp"
+    await client.aclose(); cache.close()
 
 
 @respx.mock
@@ -33,8 +35,26 @@ async def test_dispatch_get_tidal_gate(tmp_path):
     assert result["slack_windows"][0]["utc"] == "2026-05-24T09:14:00Z"
 
 
-async def test_dispatch_unknown_tool(tmp_path):
-    import pytest
+async def test_dispatch_get_passage_gates():
+    # Open-water destination routes through dispatch with no HTTP (empty gate list).
+    cache = EventCache(":memory:"); cache.init_schema()
+    client = RateLimitedClient()
+    result = await dispatch(client, cache, "get_passage_gates", {"destination": "Desolation Sound"})
+    await client.aclose(); cache.close()
+    assert result["destination"] == "Desolation Sound"
+    assert result["gates"] == []
+
+
+async def test_dispatch_list_gates():
+    # Guards against an accidental `await` being added to the sync list_gates branch.
+    cache = EventCache(":memory:"); cache.init_schema()
+    client = RateLimitedClient()
+    result = await dispatch(client, cache, "list_gates", {})
+    await client.aclose(); cache.close()
+    assert "coverage" in result and "display" in result
+
+
+async def test_dispatch_unknown_tool():
     cache = EventCache(":memory:"); cache.init_schema()
     client = RateLimitedClient()
     try:
