@@ -10,12 +10,16 @@ import math
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
-from tide_mcp.passages import Gate
-from tide_mcp.providers import CurrentEvent, _iso_z
+from tide_mcp.cache import EventCache
+from tide_mcp.client import RateLimitedClient
+from tide_mcp.fetch import ProviderNotImplemented, gate_events
+from tide_mcp.passages import GATES, Gate, find_gate
+from tide_mcp.providers import CurrentEvent, _iso_z, _parse_dt
 
 VICTORIA = (48.42, -123.37)
 DEFAULT_SPEED_KNOTS = 6.0
 DISPLAY_TZ = ZoneInfo("America/Vancouver")
+_NOAA_UNAVAILABLE = "US current data (NOAA) not yet available."
 
 
 def _haversine_nm(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
@@ -86,3 +90,36 @@ def _recommended_depart(
         return None
     depart_by = (slack.utc - travel).astimezone(DISPLAY_TZ)
     return f"Depart by {depart_by:%H:%M} {depart_by:%Z} to hit {gate.name} at slack."
+
+
+def _parse_dt_arg(value: str | None) -> datetime:
+    """Parse an optional ISO date/datetime arg; default now (UTC). Date-only -> 00:00Z."""
+    if not value:
+        return datetime.now(timezone.utc)
+    v = value.strip()
+    if "T" not in v and " " not in v:
+        v = v + "T00:00:00+00:00"
+    return _parse_dt(v)
+
+
+def _gate_suggestions() -> str:
+    return "Known gates: " + ", ".join(GATES.keys()) + "."
+
+
+async def get_tidal_gate(
+    client: RateLimitedClient, cache: EventCache, name: str, date: str | None = None
+) -> dict:
+    """Return the next 3 slack windows for a single named gate."""
+    gate = find_gate(name)
+    if gate is None:
+        return {"unmatched": True, "suggestions_display": _gate_suggestions()}
+    after = _parse_dt_arg(date)
+    try:
+        events = await gate_events(client, cache, gate, after)
+    except ProviderNotImplemented:
+        return {"name": gate.name, "slack_windows": [], "note_display": _NOAA_UNAVAILABLE}
+    return {
+        "name": gate.name,
+        "slack_windows": _slack_windows(events, 3, after),
+        "transit_window_minutes": gate.transit_window_minutes,
+    }
