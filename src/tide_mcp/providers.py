@@ -78,7 +78,7 @@ async def fetch_chs_events(
             CurrentEvent(
                 utc=_parse_dt(row["eventDate"]),
                 kind=kind,
-                speed_knots=abs(float(row.get("value", 0.0))),
+                speed_knots=abs(float(row["value"])),
             )
         )
     return events

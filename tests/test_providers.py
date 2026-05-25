@@ -34,3 +34,19 @@ async def test_fetch_chs_events_parses_qualifiers():
     assert events[0].speed_knots == 6.255
     # request used the wcp1-events time series, not wlp-hilo
     assert route.calls[0].request.url.params["time-series-code"] == "wcp1-events"
+
+
+@respx.mock
+async def test_fetch_chs_events_skips_unknown_qualifiers():
+    events_json = [*CHS_EVENTS, {"eventDate": "2026-05-24T12:00:00Z", "qualifier": "OTHER", "value": 3.0}]
+    respx.get("https://api-sine.dfo-mpo.gc.ca/api/v1/stations/STN/data").mock(
+        return_value=httpx.Response(200, json=events_json)
+    )
+    client = RateLimitedClient()
+    start = datetime(2026, 5, 24, tzinfo=timezone.utc)
+    end = datetime(2026, 5, 25, tzinfo=timezone.utc)
+    events = await fetch_chs_events(client, "STN", start, end)
+    await client.aclose()
+
+    assert len(events) == 3  # the OTHER qualifier row is skipped
+    assert [e.kind for e in events] == ["flood", "slack", "ebb"]
