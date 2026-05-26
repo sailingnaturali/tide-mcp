@@ -12,7 +12,7 @@ from zoneinfo import ZoneInfo
 
 from tide_mcp.cache import EventCache
 from tide_mcp.client import RateLimitedClient
-from tide_mcp.fetch import gate_events
+from tide_mcp.fetch import gate_events, tide_height_events
 from tide_mcp.passages import GATES, Gate, PASSAGES, coverage, find_gate, match_destination
 from tide_mcp.providers import CurrentEvent, _iso_z, _parse_dt
 
@@ -56,6 +56,12 @@ def _fmt_slack(utc: datetime, direction: str) -> str:
     """e.g. 'Sun 21:14 PDT (slack, ebb→flood)'."""
     local = utc.astimezone(DISPLAY_TZ)
     return f"{local:%a %H:%M} {local:%Z} (slack, {direction})"
+
+
+def _fmt_height(utc: datetime, kind: str, height_m: float) -> str:
+    """e.g. 'Low 09:31 PDT — 1.2 m'."""
+    local = utc.astimezone(DISPLAY_TZ)
+    return f"{kind.capitalize()} {local:%H:%M} {local:%Z} — {height_m:.1f} m"
 
 
 def _slack_windows(events: list[CurrentEvent], limit: int, after: datetime) -> list[dict]:
@@ -188,3 +194,53 @@ def list_gates() -> dict:
         f"{c['destination']} ({', '.join(c['gates']) or 'no gates'})" for c in cov
     )
     return {"coverage": cov, "display": display}
+
+
+async def get_tide_heights(
+    client: RateLimitedClient,
+    cache: EventCache,
+    lat: float,
+    lon: float,
+    date: str | None = None,
+) -> dict:
+    """Return high/low tide heights for the nearest CHS water-level station."""
+    after = _parse_dt_arg(date)
+    info, events = await tide_height_events(client, cache, lat, lon, after)
+
+    out_events = [
+        {
+            "display": _fmt_height(e.utc, e.kind, e.height_m),
+            "type": e.kind,
+            "height_m": round(e.height_m, 1),
+            "utc": _iso_z(e.utc),
+        }
+        for e in events
+    ]
+
+    if not out_events:
+        summary = (
+            f"Tide heights unavailable for this position "
+            f"(nearest station: {info['station_name']})."
+        )
+        return {
+            "station_name": info["station_name"],
+            "distance_km": info["distance_km"],
+            "events": [],
+            "summary_display": summary,
+        }
+
+    next_low = next((e for e in out_events if e["type"] == "low"), None)
+    next_high = next((e for e in out_events if e["type"] == "high"), None)
+    nxt = next_low or next_high
+    label = nxt["type"]
+    when_height = nxt["display"].split(" ", 1)[1]  # drop the "Low "/"High " prefix
+    summary = (
+        f"Nearest tide station: {info['station_name']}, "
+        f"{info['distance_km']} km from you. Next {label} is {when_height}."
+    )
+    return {
+        "station_name": info["station_name"],
+        "distance_km": info["distance_km"],
+        "events": out_events,
+        "summary_display": summary,
+    }
