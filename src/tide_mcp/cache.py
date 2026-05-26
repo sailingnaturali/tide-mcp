@@ -1,13 +1,17 @@
-"""Disk-backed cache for current-prediction events.
+"""Disk-backed cache for tide predictions.
 
-Keyed `provider:station:utc_date`. Predictions for a given station-day are
-immutable, so entries never expire.
+Two access patterns share one table:
+- Immutable entries (current/height predictions) keyed `provider:station:date`
+  via get/put — never expire (written_at left NULL).
+- TTL entries (the CHS station list) keyed `chs:stations:wlp-hilo` via
+  get_with_ttl/put_with_ttl — written_at holds epoch seconds, checked on read.
 """
 
 from __future__ import annotations
 
 import json
 import sqlite3
+import time
 
 
 class EventCache:
@@ -25,11 +29,16 @@ class EventCache:
         self._conn.executescript(
             """
             CREATE TABLE IF NOT EXISTS events_cache (
-                key     TEXT PRIMARY KEY,
-                payload TEXT NOT NULL
+                key        TEXT PRIMARY KEY,
+                payload    TEXT NOT NULL,
+                written_at REAL
             );
             """
         )
+        # Upgrade legacy (v0.1.0) DBs that lack written_at.
+        cols = {row[1] for row in self._conn.execute("PRAGMA table_info(events_cache)")}
+        if "written_at" not in cols:
+            self._conn.execute("ALTER TABLE events_cache ADD COLUMN written_at REAL")
         self._conn.commit()
 
     def get(self, key: str) -> list[dict] | None:
@@ -39,8 +48,27 @@ class EventCache:
 
     def put(self, key: str, payload: list[dict]) -> None:
         self._conn.execute(
-            "INSERT OR REPLACE INTO events_cache (key, payload) VALUES (?, ?)",
+            "INSERT OR REPLACE INTO events_cache (key, payload, written_at) VALUES (?, ?, NULL)",
             (key, json.dumps(payload)),
+        )
+        self._conn.commit()
+
+    def get_with_ttl(self, key: str, ttl_seconds: float) -> list[dict] | None:
+        """Return the payload only if written within ttl_seconds; else None."""
+        cur = self._conn.execute(
+            "SELECT payload, written_at FROM events_cache WHERE key = ?", (key,)
+        )
+        row = cur.fetchone()
+        if row is None or row[1] is None:
+            return None
+        if time.time() - row[1] >= ttl_seconds:
+            return None
+        return json.loads(row[0])
+
+    def put_with_ttl(self, key: str, payload: list[dict]) -> None:
+        self._conn.execute(
+            "INSERT OR REPLACE INTO events_cache (key, payload, written_at) VALUES (?, ?, ?)",
+            (key, json.dumps(payload), time.time()),
         )
         self._conn.commit()
 
