@@ -96,3 +96,18 @@ async def test_fetch_noaa_events_skips_unknown_type():
 
     assert len(events) == 3  # the "other" Type row is skipped
     assert [e.kind for e in events] == ["slack", "flood", "ebb"]
+
+
+def test_tide_height_event_roundtrips_via_dict():
+    from tide_mcp.providers import TideHeightEvent
+    e = TideHeightEvent(datetime(2026, 5, 26, 9, 48, tzinfo=timezone.utc), "high", 3.05)
+    assert TideHeightEvent.from_dict(e.to_dict()) == e
+
+
+def test_tide_height_event_to_dict_serializes_utc_as_iso():
+    from tide_mcp.providers import TideHeightEvent
+    e = TideHeightEvent(datetime(2026, 5, 26, 9, 48, tzinfo=timezone.utc), "low", 1.2)
+    d = e.to_dict()
+    assert d["utc"] == "2026-05-26T09:48:00+00:00"
+    assert d["kind"] == "low"
+    assert d["height_m"] == 1.2

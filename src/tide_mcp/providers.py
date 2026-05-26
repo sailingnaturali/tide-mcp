@@ -44,6 +44,26 @@ class CurrentEvent:
         )
 
 
+@dataclass(frozen=True)
+class TideHeightEvent:
+    utc: datetime          # tz-aware UTC
+    kind: str              # "high" | "low"
+    height_m: float        # metres above chart datum
+
+    def to_dict(self) -> dict:
+        d = asdict(self)
+        d["utc"] = self.utc.isoformat()
+        return d
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "TideHeightEvent":
+        return cls(
+            utc=_parse_dt(d["utc"]),
+            kind=d["kind"],
+            height_m=d["height_m"],
+        )
+
+
 def _parse_dt(s: str) -> datetime:
     """Parse an ISO8601 timestamp (with Z or offset) to a tz-aware UTC datetime."""
     dt = datetime.fromisoformat(s.replace("Z", "+00:00"))
