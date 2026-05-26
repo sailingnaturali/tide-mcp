@@ -13,7 +13,7 @@ DAY = [
 
 
 def test_tool_names():
-    assert TOOL_NAMES == ["get_passage_gates", "get_tidal_gate", "list_gates"]
+    assert TOOL_NAMES == ["get_passage_gates", "get_tidal_gate", "list_gates", "get_tide_heights"]
 
 
 async def test_build_server_names_it():
@@ -62,3 +62,32 @@ async def test_dispatch_unknown_tool():
             await dispatch(client, cache, "nope", {})
     finally:
         await client.aclose(); cache.close()
+
+
+HILO = [
+    {"eventDate": "2026-05-26T09:48:00Z", "value": 3.0},
+    {"eventDate": "2026-05-26T16:31:00Z", "value": 1.2},
+]
+STATIONS = [
+    {"id": "AAA", "officialName": "Montague Harbour", "latitude": 48.76, "longitude": -123.05,
+     "operating": True, "timeSeries": [{"code": "wlp-hilo"}]},
+]
+
+
+@respx.mock
+async def test_dispatch_get_tide_heights(tmp_path):
+    respx.get("https://api-sine.dfo-mpo.gc.ca/api/v1/stations").mock(
+        return_value=httpx.Response(200, json=STATIONS)
+    )
+    respx.get("https://api-sine.dfo-mpo.gc.ca/api/v1/stations/AAA/data").mock(
+        return_value=httpx.Response(200, json=HILO)
+    )
+    cache = EventCache(str(tmp_path / "c.sqlite")); cache.init_schema()
+    client = RateLimitedClient()
+    result = await dispatch(
+        client, cache, "get_tide_heights",
+        {"lat": 48.76, "lon": -123.05, "date": "2026-05-26"},
+    )
+    await client.aclose(); cache.close()
+    assert result["station_name"] == "Montague Harbour"
+    assert [e["type"] for e in result["events"]] == ["high", "low"]

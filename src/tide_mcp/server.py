@@ -17,11 +17,11 @@ from mcp.server.stdio import stdio_server
 
 from tide_mcp.cache import EventCache
 from tide_mcp.client import RateLimitedClient
-from tide_mcp.tools import get_passage_gates, get_tidal_gate, list_gates
+from tide_mcp.tools import get_passage_gates, get_tidal_gate, get_tide_heights, list_gates
 
 logger = logging.getLogger(__name__)
 
-TOOL_NAMES = ["get_passage_gates", "get_tidal_gate", "list_gates"]
+TOOL_NAMES = ["get_passage_gates", "get_tidal_gate", "list_gates", "get_tide_heights"]
 
 
 async def dispatch(client: RateLimitedClient, cache: EventCache, name: str, args: dict) -> dict:
@@ -38,6 +38,10 @@ async def dispatch(client: RateLimitedClient, cache: EventCache, name: str, args
         return await get_tidal_gate(client, cache, name=args["name"], date=args.get("date"))
     if name == "list_gates":
         return list_gates()
+    if name == "get_tide_heights":
+        return await get_tide_heights(
+            client, cache, lat=args["lat"], lon=args["lon"], date=args.get("date")
+        )
     raise ValueError(f"Unknown tool: {name}")
 
 
@@ -77,6 +81,19 @@ def build_server(client: RateLimitedClient, cache: EventCache) -> Server:
                 name="list_gates",
                 description="Known destinations and the tidal gates they cover.",
                 inputSchema={"type": "object", "properties": {}},
+            ),
+            types.Tool(
+                name="get_tide_heights",
+                description="High/low tide heights for the nearest water-level station to a position.",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "lat": {"type": "number", "description": "Latitude (decimal degrees)."},
+                        "lon": {"type": "number", "description": "Longitude (decimal degrees)."},
+                        "date": {"type": "string", "description": "ISO date; defaults to today."},
+                    },
+                    "required": ["lat", "lon"],
+                },
             ),
         ]
 
