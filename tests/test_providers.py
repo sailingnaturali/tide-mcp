@@ -111,3 +111,78 @@ def test_tide_height_event_to_dict_serializes_utc_as_iso():
     assert d["utc"] == "2026-05-26T09:48:00+00:00"
     assert d["kind"] == "low"
     assert d["height_m"] == 1.2
+
+
+HILO_STARTS_HIGH = [
+    {"eventDate": "2026-05-26T09:48:00Z", "value": 3.05},
+    {"eventDate": "2026-05-26T16:31:00Z", "value": 1.2},
+    {"eventDate": "2026-05-26T23:05:00Z", "value": 2.7},
+    {"eventDate": "2026-05-27T04:58:00Z", "value": 0.4},
+]
+
+
+@respx.mock
+async def test_fetch_chs_height_events_classifies_starting_high():
+    from tide_mcp.providers import fetch_chs_height_events
+    route = respx.get("https://api-sine.dfo-mpo.gc.ca/api/v1/stations/STN/data").mock(
+        return_value=httpx.Response(200, json=HILO_STARTS_HIGH)
+    )
+    client = RateLimitedClient()
+    start = datetime(2026, 5, 26, tzinfo=timezone.utc)
+    end = datetime(2026, 5, 27, tzinfo=timezone.utc)
+    events = await fetch_chs_height_events(client, "STN", start, end)
+    await client.aclose()
+
+    assert [e.kind for e in events] == ["high", "low", "high", "low"]
+    assert events[0].height_m == 3.05
+    # request used the wlp-hilo time series, not wcp1-events
+    assert route.calls[0].request.url.params["time-series-code"] == "wlp-hilo"
+
+
+@respx.mock
+async def test_fetch_chs_height_events_classifies_starting_low():
+    from tide_mcp.providers import fetch_chs_height_events
+    payload = [
+        {"eventDate": "2026-05-26T07:00:00Z", "value": 0.5},
+        {"eventDate": "2026-05-26T13:00:00Z", "value": 3.1},
+    ]
+    respx.get("https://api-sine.dfo-mpo.gc.ca/api/v1/stations/STN/data").mock(
+        return_value=httpx.Response(200, json=payload)
+    )
+    client = RateLimitedClient()
+    events = await fetch_chs_height_events(
+        client, "STN", datetime(2026, 5, 26, tzinfo=timezone.utc),
+        datetime(2026, 5, 27, tzinfo=timezone.utc),
+    )
+    await client.aclose()
+    assert [e.kind for e in events] == ["low", "high"]
+
+
+@respx.mock
+async def test_fetch_chs_height_events_single_event_is_high():
+    from tide_mcp.providers import fetch_chs_height_events
+    respx.get("https://api-sine.dfo-mpo.gc.ca/api/v1/stations/STN/data").mock(
+        return_value=httpx.Response(200, json=[{"eventDate": "2026-05-26T07:00:00Z", "value": 2.0}])
+    )
+    client = RateLimitedClient()
+    events = await fetch_chs_height_events(
+        client, "STN", datetime(2026, 5, 26, tzinfo=timezone.utc),
+        datetime(2026, 5, 27, tzinfo=timezone.utc),
+    )
+    await client.aclose()
+    assert [e.kind for e in events] == ["high"]
+
+
+@respx.mock
+async def test_fetch_chs_height_events_empty():
+    from tide_mcp.providers import fetch_chs_height_events
+    respx.get("https://api-sine.dfo-mpo.gc.ca/api/v1/stations/STN/data").mock(
+        return_value=httpx.Response(200, json=[])
+    )
+    client = RateLimitedClient()
+    events = await fetch_chs_height_events(
+        client, "STN", datetime(2026, 5, 26, tzinfo=timezone.utc),
+        datetime(2026, 5, 27, tzinfo=timezone.utc),
+    )
+    await client.aclose()
+    assert events == []

@@ -121,6 +121,43 @@ async def fetch_noaa_events(
     return events
 
 
+def _classify_height_kinds(values: list[float]) -> list[str]:
+    """Label a sequence of water-level values high/low by alternation.
+
+    The first is high iff it exceeds the next (single value -> high).
+    Matches briefing.py._classify_tide_events.
+    """
+    if not values:
+        return []
+    first_is_high = len(values) < 2 or values[0] > values[1]
+    types = ["high", "low"] if first_is_high else ["low", "high"]
+    return [types[i % 2] for i in range(len(values))]
+
+
+async def fetch_chs_height_events(
+    client: RateLimitedClient, station_id: str, start: datetime, end: datetime
+) -> list[TideHeightEvent]:
+    """Fetch CHS wlp-hilo (high/low water) for a station over [start, end), classified."""
+    url = f"{CHS_BASE}/stations/{station_id}/data"
+    params = {
+        "time-series-code": "wlp-hilo",
+        "from": _iso_z(start),
+        "to": _iso_z(end),
+    }
+    resp = await client.get(url, params=params)
+    resp.raise_for_status()
+    rows = resp.json()
+    kinds = _classify_height_kinds([float(r["value"]) for r in rows])
+    return [
+        TideHeightEvent(
+            utc=_parse_dt(rows[i]["eventDate"]),
+            kind=kinds[i],
+            height_m=float(rows[i]["value"]),
+        )
+        for i in range(len(rows))
+    ]
+
+
 async def fetch_chs_events(
     client: RateLimitedClient, station_id: str, start: datetime, end: datetime
 ) -> list[CurrentEvent]:
