@@ -49,6 +49,30 @@ Returns the next 3 slack windows for a single named gate: `{"name", "slack_windo
 
 Returns all covered destinations and the gates they route through: `{"coverage": [{"destination", "aliases", "gates"}, ...], "display": "..."}`.
 
+### `get_tide_heights(lat, lon, date?)`
+
+Returns high/low tide height events from the nearest CHS water-level station. Use for anchor planning ("when is low tide here?") and any question about tidal range.
+
+- `lat`, `lon`: vessel or target position in decimal degrees
+- `date`: optional ISO date string (defaults to today)
+
+Example response:
+
+```json
+{
+  "station_name": "Tsawwassen",
+  "distance_km": 18.3,
+  "events": [
+    {"display": "Low 06:14 PDT — 0.9 m", "type": "low", "height_m": 0.9, "utc": "2026-05-26T13:14:00Z"},
+    {"display": "High 12:38 PDT — 3.8 m", "type": "high", "height_m": 3.8, "utc": "2026-05-26T19:38:00Z"},
+    {"display": "Low 18:47 PDT — 1.0 m", "type": "low", "height_m": 1.0, "utc": "2026-05-27T01:47:00Z"}
+  ],
+  "summary_display": "Nearest tide station: Tsawwassen, 18.3 km from you. Next low is 06:14 PDT — 0.9 m."
+}
+```
+
+Data source: CHS IWLS water-level (`wlp-hilo`) stations. Station list cached 24 h; per-day predictions cached indefinitely (immutable).
+
 ## Coverage
 
 CHS (BC): Dodd Narrows, Active Pass, Porlier Pass, Gabriola Passage, Seymour Narrows, Beazley Passage (Surge Narrows), Hole in the Wall, Gillard Passage, Dent Rapids.
@@ -59,10 +83,11 @@ Open-water destinations (no gates): Desolation Sound, Cortes Island, Campbell Ri
 
 ## Data sources
 
-- CHS IWLS current stations (BC)
-- NOAA CO-OPS (US)
+- CHS IWLS current stations (`wcp1-events`, BC) — tidal gate slack windows
+- CHS IWLS water-level stations (`wlp-hilo`, BC) — tide heights
+- NOAA CO-OPS (US) — tidal gate slack windows (San Juans)
 
-Current speeds in knots. Times rendered in America/Vancouver (PDT/PST).
+Current speeds in knots. Heights in metres. Times rendered in America/Vancouver (PDT/PST).
 
 ## Configuration
 
