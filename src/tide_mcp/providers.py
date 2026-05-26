@@ -158,6 +158,13 @@ async def fetch_chs_height_events(
     ]
 
 
+async def fetch_chs_stations(client: RateLimitedClient) -> list[dict]:
+    """Fetch the full CHS station list (id, name, coords, operating, timeSeries)."""
+    resp = await client.get(f"{CHS_BASE}/stations")
+    resp.raise_for_status()
+    return resp.json()
+
+
 async def fetch_chs_events(
     client: RateLimitedClient, station_id: str, start: datetime, end: datetime
 ) -> list[CurrentEvent]:

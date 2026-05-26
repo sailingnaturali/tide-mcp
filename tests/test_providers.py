@@ -186,3 +186,25 @@ async def test_fetch_chs_height_events_empty():
     )
     await client.aclose()
     assert events == []
+
+
+STATIONS_JSON = [
+    {"id": "AAA", "officialName": "Near Station", "latitude": 48.76, "longitude": -123.05,
+     "operating": True, "timeSeries": [{"code": "wlp-hilo"}]},
+    {"id": "BBB", "officialName": "Current Only", "latitude": 49.0, "longitude": -123.5,
+     "operating": True, "timeSeries": [{"code": "wcp1-events"}]},
+]
+
+
+@respx.mock
+async def test_fetch_chs_stations_returns_raw_list():
+    from tide_mcp.providers import fetch_chs_stations
+    route = respx.get("https://api-sine.dfo-mpo.gc.ca/api/v1/stations").mock(
+        return_value=httpx.Response(200, json=STATIONS_JSON)
+    )
+    client = RateLimitedClient()
+    stations = await fetch_chs_stations(client)
+    await client.aclose()
+    assert route.called
+    assert len(stations) == 2
+    assert stations[0]["id"] == "AAA"
