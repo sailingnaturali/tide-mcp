@@ -13,6 +13,7 @@ from tide_mcp.passages import Gate
 from tide_mcp.providers import (
     CurrentEvent,
     TideHeightEvent,
+    _classify_height_kinds,
     fetch_chs_events,
     fetch_chs_height_events,
     fetch_chs_stations,
@@ -63,7 +64,7 @@ STATIONS_CACHE_KEY = "chs:stations:wlp-hilo"
 
 
 def _haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
-    """Great-circle distance in kilometres (matches briefing.py)."""
+    """Great-circle distance in kilometres."""
     r_km = 6371.0
     p1, p2 = math.radians(lat1), math.radians(lat2)
     dphi = math.radians(lat2 - lat1)
@@ -118,6 +119,12 @@ async def tide_height_events(
             events = [TideHeightEvent.from_dict(x) for x in cached]
         out.extend(events)
     out.sort(key=lambda e: e.utc)
+    # Each day is classified independently in cache; re-classify across the
+    # joined sequence so a one-event day can't break alternation at the seam.
+    if len(out) > 1:
+        kinds = _classify_height_kinds([e.height_m for e in out])
+        out = [TideHeightEvent(utc=e.utc, kind=k, height_m=e.height_m)
+               for e, k in zip(out, kinds)]
     info = {
         "station_name": station["officialName"],
         "distance_km": round(_haversine_km(lat, lon, station["latitude"], station["longitude"])),

@@ -203,9 +203,12 @@ async def get_tide_heights(
     lon: float,
     date: str | None = None,
 ) -> dict:
-    """Return high/low tide heights for the nearest CHS water-level station."""
+    """Return high/low tide heights for the nearest CHS water-level station,
+    starting at `date` (or now) and covering ~one local-day tide cycle."""
     after = _parse_dt_arg(date)
-    info, events = await tide_height_events(client, cache, lat, lon, after)
+    # n_days=2 so we don't drop the local-day tail when `after` is late in a
+    # UTC day (e.g. evening PDT pushes that night's events into tomorrow UTC).
+    info, events = await tide_height_events(client, cache, lat, lon, after, n_days=2)
 
     out_events = [
         {
@@ -214,8 +217,8 @@ async def get_tide_heights(
             "height_m": round(e.height_m, 1),
             "utc": _iso_z(e.utc),
         }
-        for e in events
-    ]
+        for e in events if e.utc >= after
+    ][:4]
 
     if not out_events:
         summary = (

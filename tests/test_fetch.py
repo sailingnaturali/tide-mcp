@@ -80,6 +80,37 @@ async def test_tide_height_events_orchestrates(tmp_path):
 
 
 @respx.mock
+async def test_tide_height_events_reclassifies_across_days(tmp_path):
+    """Each cached day is classified independently; a one-event day at the seam
+    would mis-alternate without the orchestrator-level reclassify."""
+    from tide_mcp.fetch import tide_height_events
+    respx.get("https://api-sine.dfo-mpo.gc.ca/api/v1/stations").mock(
+        return_value=httpx.Response(200, json=HEIGHT_STATIONS)
+    )
+
+    def by_day(request):
+        from_str = request.url.params.get("from", "")
+        if from_str.startswith("2026-05-26"):
+            # Day ends with a HIGH at 22:00Z.
+            return httpx.Response(200, json=[
+                {"eventDate": "2026-05-26T16:00:00Z", "value": 0.8},
+                {"eventDate": "2026-05-26T22:00:00Z", "value": 3.5},
+            ])
+        # Day 2 has a single event — per-day classification would call this a
+        # "high" by default. Joined with day 1's trailing high, it must be a low.
+        return httpx.Response(200, json=[{"eventDate": "2026-05-27T04:00:00Z", "value": 1.0}])
+
+    respx.get("https://api-sine.dfo-mpo.gc.ca/api/v1/stations/AAA/data").mock(side_effect=by_day)
+    cache = EventCache(str(tmp_path / "c.sqlite")); cache.init_schema()
+    client = RateLimitedClient()
+    start = datetime(2026, 5, 26, tzinfo=timezone.utc)
+    _, events = await tide_height_events(client, cache, 48.76, -123.05, start, n_days=2)
+    await client.aclose(); cache.close()
+
+    assert [e.kind for e in events] == ["low", "high", "low"]
+
+
+@respx.mock
 async def test_tide_height_events_caches_day(tmp_path):
     from tide_mcp.fetch import tide_height_events
     respx.get("https://api-sine.dfo-mpo.gc.ca/api/v1/stations").mock(

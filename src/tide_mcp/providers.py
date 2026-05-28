@@ -124,8 +124,8 @@ async def fetch_noaa_events(
 def _classify_height_kinds(values: list[float]) -> list[str]:
     """Label a sequence of water-level values high/low by alternation.
 
-    The first is high iff it exceeds the next (single value -> high).
-    Matches briefing.py._classify_tide_events.
+    The first is high iff it exceeds the next (single value -> high). Assumes
+    values strictly alternate high/low, which holds for real semidiurnal tides.
     """
     if not values:
         return []

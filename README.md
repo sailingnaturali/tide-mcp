@@ -2,7 +2,7 @@
 
 MCP server exposing Pacific Northwest tidal-gate slack windows to agents. Covers CHS current-prediction stations (BC waters) and NOAA CO-OPS (US waters). Reports next slack windows, transit windows, and recommended departure times for named tidal gates and destination passages.
 
-See `docs/superpowers/specs/2026-05-24-tide-mcp-design.md` in the `sailingnaturali` repo for design.
+Design notes live in the private `sailingnaturali` repo at `docs/superpowers/specs/2026-05-24-tide-mcp-design.md`.
 
 ## Tools
 
@@ -71,15 +71,21 @@ Example response:
 }
 ```
 
-Data source: CHS IWLS water-level (`wlp-hilo`) stations. Station list cached 24 h; per-day predictions cached indefinitely (immutable).
+Data source: CHS IWLS water-level (`wlp-hilo`) stations. Station list cached 24 h; per-day predictions cached indefinitely (immutable). Two UTC days are queried so the local-day tail isn't dropped when called late in a PDT day; the next ~4 events at/after the query time are returned.
 
 ## Coverage
 
-CHS (BC): Dodd Narrows, Active Pass, Porlier Pass, Gabriola Passage, Seymour Narrows, Beazley Passage (Surge Narrows), Hole in the Wall, Gillard Passage, Dent Rapids.
+**Destinations** (resolvable via `get_passage_gates`):
 
-NOAA (US): Boundary Pass (San Juans / Friday Harbor).
+- Gated: Nanaimo, Discovery Islands, Johnstone Strait via Discovery Passage, Cordero Channel, Friday Harbor.
+- Open water (no gates): Gulf Islands, Desolation Sound, Cortes Island, Campbell River.
 
-Open-water destinations (no gates): Desolation Sound, Cortes Island, Campbell River, Gulf Islands.
+**Named tidal gates** (resolvable via `get_tidal_gate`):
+
+- CHS (BC): Dodd Narrows, Active Pass, Porlier Pass, Gabriola Passage, Seymour Narrows, Beazley Passage (Surge Narrows), Hole in the Wall, Gillard Passage, Dent Rapids.
+- NOAA (US): Boundary Pass (San Juans / Friday Harbor).
+
+Active Pass, Porlier Pass, Gabriola Passage, and Hole in the Wall are addressable by name but are not yet wired into any Victoria-origin passage.
 
 ## Data sources
 
