@@ -1,8 +1,8 @@
-# tide-mcp
+# currents-mcp
 
-MCP server exposing Pacific Northwest tidal-gate slack windows to agents. Covers CHS current-prediction stations (BC waters) and NOAA CO-OPS (US waters). Reports next slack windows, transit windows, and recommended departure times for named tidal gates and destination passages.
+MCP server exposing Pacific Northwest tidal-gate slack windows to agents. Tidal-current predictions are read from the [`signalk-currents`](https://github.com/sailingnaturali) plugin's `/currents` resource (the plugin owns CHS/NOAA fetching and caching); this server maps named gates and destination passages onto those predictions and reports next slack windows, transit windows, and recommended departure times.
 
-Design notes live in the private `sailingnaturali` repo at `docs/superpowers/specs/2026-05-24-tide-mcp-design.md`.
+Design notes live in the private `sailingnaturali` repo at `docs/superpowers/specs/2026-05-24-tide-mcp-design.md`; the rename/refactor plan is `docs/superpowers/plans/2026-06-05-currents-mcp.md`.
 
 ## Tools
 
@@ -53,6 +53,8 @@ Returns all covered destinations and the gates they route through: `{"coverage":
 
 Returns high/low tide height events from the nearest CHS water-level station. Use for anchor planning ("when is low tide here?") and any question about tidal range.
 
+> **Vestigial pending Phase 2.** Heights are still fetched from CHS directly inside this server (the only remaining direct-fetch path). Phase 2 moves heights into `signalk-tides`/`signalk-currents` and removes this tool from `currents-mcp`.
+
 - `lat`, `lon`: vessel or target position in decimal degrees
 - `date`: optional ISO date string (defaults to today)
 
@@ -82,16 +84,17 @@ Data source: CHS IWLS water-level (`wlp-hilo`) stations. Station list cached 24 
 
 **Named tidal gates** (resolvable via `get_tidal_gate`):
 
-- CHS (BC): Dodd Narrows, Active Pass, Porlier Pass, Gabriola Passage, Seymour Narrows, Beazley Passage (Surge Narrows), Hole in the Wall, Gillard Passage, Dent Rapids.
-- NOAA (US): Boundary Pass (San Juans / Friday Harbor).
+- BC: Dodd Narrows, Active Pass, Porlier Pass, Gabriola Passage, Seymour Narrows, Beazley Passage (Surge Narrows), Hole in the Wall, Gillard Passage, Dent Rapids.
+- US: Boundary Pass (San Juans / Friday Harbor).
 
 Active Pass, Porlier Pass, Gabriola Passage, and Hole in the Wall are addressable by name but are not yet wired into any Victoria-origin passage.
 
+The gate-to-station mapping lives in `passages.py`; the `signalk-currents` plugin must be configured with the matching station list so every gate's `station_id` is present in `/currents`. A gate whose station is missing from the payload returns no slack windows.
+
 ## Data sources
 
-- CHS IWLS current stations (`wcp1-events`, BC) — tidal gate slack windows
-- CHS IWLS water-level stations (`wlp-hilo`, BC) — tide heights
-- NOAA CO-OPS (US) — tidal gate slack windows (San Juans)
+- `signalk-currents` plugin `/currents` resource (CHS `wcp1-events` BC + NOAA CO-OPS US, fetched/cached by the plugin) — tidal gate slack windows
+- CHS IWLS water-level stations (`wlp-hilo`, BC) — tide heights (fetched directly here, pending Phase 2)
 
 Current speeds in knots. Heights in metres. Times rendered in America/Vancouver (PDT/PST).
 
@@ -99,11 +102,12 @@ Current speeds in knots. Heights in metres. Times rendered in America/Vancouver 
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `TIDE_CACHE_PATH` | `~/.tide-mcp/cache.sqlite` | Path to the SQLite response cache |
+| `SIGNALK_URL` | `http://localhost:3000` | Base URL of the SignalK server running `signalk-currents`; the gate tools GET `/plugins/signalk-currents/currents` from here |
+| `CURRENTS_CACHE_PATH` | `~/.currents-mcp/cache.sqlite` | Path to the SQLite response cache (tide-height predictions) |
 
 ## Run
 
-    uv run tide-mcp
+    SIGNALK_URL=http://naturalaspi.local:3000 uv run currents-mcp
 
 ## Test
 
