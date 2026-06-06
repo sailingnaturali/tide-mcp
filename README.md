@@ -48,9 +48,12 @@ Example response:
 
 Returns the next 3 slack windows for a single named gate: `{"name", "slack_windows", "transit_window_minutes", "sets_display", "flood_dir_true", "ebb_dir_true"}`. Unknown gate name returns `{"unmatched": true, "suggestions_display": ...}`.
 
-Flood/ebb set comes from the plugin's station config (signalk-currents >= 0.3.0);
-on older payloads `sets_display` and the `*_dir_true` fields are `null` and slack
-windows fall back to the plain `(slack, ebb→flood)` form.
+Flood/ebb set comes from the signalk-currents payload (>= 0.3.0: directions;
+>= 0.5.0: provenance). `sets_display` speaks the trust level: assumed directions
+are qualified — `"…; ebb sets northwest (estimated)."` — and when no direction is
+known at all it says `"Flood and ebb set directions are not available for this
+station."` rather than omitting it. The `*_dir_true` fields are `null` when unknown,
+and slack windows fall back to the plain `(slack, ebb→flood)` form.
 
 ### `list_gates()`
 

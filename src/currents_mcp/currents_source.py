@@ -22,9 +22,22 @@ def _event_from_plugin(d: dict, flood_dir: int | None, ebb_dir: int | None) -> C
     )
 
 
+def _dirs_from_station(s: dict) -> dict:
+    """Station-level direction metadata for provenance-aware displays."""
+    if s.get("floodDir") is None and s.get("ebbDir") is None:
+        return {}
+    return {
+        "flood_dir": s.get("floodDir"),
+        "ebb_dir": s.get("ebbDir"),
+        "source": s.get("dirsSource"),
+        "flood_dir_estimated": bool(s.get("floodDirEstimated")),
+        "ebb_dir_estimated": bool(s.get("ebbDirEstimated")),
+    }
+
+
 class CurrentsClient:
     """Fetches /currents once per process lifetime cheaply (in-memory), maps
-    stationId -> events. `getter` is injectable for tests."""
+    stationId -> events (+ direction metadata). `getter` is injectable for tests."""
 
     def __init__(
         self, signalk_url: str,
@@ -33,6 +46,7 @@ class CurrentsClient:
         self._url = signalk_url.rstrip("/") + CURRENTS_PATH
         self._getter = getter or self._http_get
         self._cache: dict[str, list[CurrentEvent]] | None = None
+        self._dirs: dict[str, dict] = {}
 
     async def _http_get(self, url: str) -> dict:
         # /currents is a SignalK resource (/signalk/v2/api/resources/currents),
@@ -61,7 +75,14 @@ class CurrentsClient:
                 key=lambda e: e.utc)
             for s in payload.get("stations", [])
         }
+        self._dirs = {
+            s["stationId"]: _dirs_from_station(s) for s in payload.get("stations", [])
+        }
         return self._cache
 
     async def events_for_station(self, station_id: str) -> list[CurrentEvent]:
         return (await self._load()).get(station_id, [])
+
+    async def dirs_for_station(self, station_id: str) -> dict:
+        await self._load()
+        return self._dirs.get(station_id, {})

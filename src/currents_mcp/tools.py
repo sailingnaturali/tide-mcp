@@ -143,16 +143,21 @@ def _parse_dt_arg(value: str | None) -> datetime:
     return _parse_dt(v)
 
 
-def _gate_sets(events: list[CurrentEvent]) -> dict:
+_SETS_UNAVAILABLE = "Flood and ebb set directions are not available for this station."
+
+
+def _gate_sets(dirs: dict) -> dict:
     """Station-level flood/ebb set, in words and °true — the 'which way does it
-    flow' answer. All None when the plugin payload predates floodDir/ebbDir."""
-    flood_dir = next((e.flood_dir for e in events if e.flood_dir is not None), None)
-    ebb_dir = next((e.ebb_dir for e in events if e.ebb_dir is not None), None)
+    flow' answer. Provenance is spoken: assumed (estimated) directions are
+    qualified, and a missing direction is stated rather than silently omitted."""
+    flood_dir, ebb_dir = dirs.get("flood_dir"), dirs.get("ebb_dir")
     flood_word, ebb_word = _compass(flood_dir), _compass(ebb_dir)
-    display = (
-        f"Flood sets {flood_word}; ebb sets {ebb_word}."
-        if flood_word and ebb_word else None
-    )
+    if flood_word and ebb_word:
+        flood_q = " (estimated)" if dirs.get("flood_dir_estimated") else ""
+        ebb_q = " (estimated)" if dirs.get("ebb_dir_estimated") else ""
+        display = f"Flood sets {flood_word}{flood_q}; ebb sets {ebb_word}{ebb_q}."
+    else:
+        display = _SETS_UNAVAILABLE
     return {"sets_display": display, "flood_dir_true": flood_dir, "ebb_dir_true": ebb_dir}
 
 
@@ -173,7 +178,7 @@ async def get_tidal_gate(
         "name": gate.name,
         "slack_windows": _slack_windows(events, 3, after),
         "transit_window_minutes": gate.transit_window_minutes,
-        **_gate_sets(events),
+        **_gate_sets(await currents.dirs_for_station(gate.station_id)),
     }
 
 
@@ -212,7 +217,7 @@ async def get_passage_gates(
             "name": gate.name,
             "slack_windows": _slack_windows(events, 3, depart),
             "transit_window_minutes": gate.transit_window_minutes,
-            **_gate_sets(events),
+            **_gate_sets(await currents.dirs_for_station(gate.station_id)),
         }
         if idx == 0:
             entry["recommended_depart_display"] = _recommended_depart(gate, events, depart, origin)

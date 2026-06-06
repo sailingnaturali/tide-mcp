@@ -34,6 +34,26 @@ async def test_events_carry_station_set_directions():
 
 
 @pytest.mark.asyncio
+async def test_dirs_for_station_exposes_provenance():
+    """Station-level direction metadata: values, source, estimated flags."""
+    payload = {"stations": [
+        {"stationId": "g", "label": "Gillard", "lat": 50.39, "lon": -125.15,
+         "floodDir": 95, "ebbDir": 275, "dirsSource": "config",
+         "ebbDirEstimated": True, "events": []},
+    ]}
+    c = CurrentsClient("http://signalk:3000", getter=lambda url: payload)
+    d = await c.dirs_for_station("g")
+    assert d == {"flood_dir": 95, "ebb_dir": 275, "source": "config",
+                 "flood_dir_estimated": False, "ebb_dir_estimated": True}
+
+
+@pytest.mark.asyncio
+async def test_dirs_for_unknown_station_is_empty():
+    c = CurrentsClient("http://signalk:3000", getter=lambda url: PAYLOAD)
+    assert await c.dirs_for_station("missing") == {}
+
+
+@pytest.mark.asyncio
 async def test_missing_set_directions_default_to_none():
     """Older plugin payloads without floodDir/ebbDir still parse; dirs are None."""
     legacy = {"stations": [

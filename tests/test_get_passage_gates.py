@@ -31,11 +31,14 @@ async def test_passage_multi_gate_first_gets_departure():
     assert result["gates"][0]["recommended_depart_display"] is not None
     assert result["gates"][1]["recommended_depart_display"] is None
     assert "note_display" in result["gates"][1]
-    # Gillard carries dirs; Dent (deliberately) doesn't — each gate stands alone.
+    # Gillard carries dirs; Dent (deliberately) doesn't — each gate stands alone,
+    # and the gap is stated rather than silently omitted.
     assert result["gates"][0]["sets_display"] == (
         "Flood sets south-southeast; ebb sets north-northwest."
     )
-    assert result["gates"][1]["sets_display"] is None
+    assert result["gates"][1]["sets_display"] == (
+        "Flood and ebb set directions are not available for this station."
+    )
 
 
 async def test_passage_open_water_returns_empty_gates():
