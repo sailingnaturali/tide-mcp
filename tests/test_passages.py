@@ -28,6 +28,14 @@ def test_match_destination_unknown_returns_none():
     assert match_destination("Atlantis") is None
 
 
+def test_arran_rapids_is_a_known_gate():
+    # Added when the Pi station list grew to cover it (CT&CT Vol 6: flood 060/ebb 240).
+    gate = GATES["Arran Rapids"]
+    assert gate.provider == "chs"
+    assert gate.station_id == "63aeff5884e5432cd3b71283"
+    assert gate.transit_window_minutes == 20
+
+
 def test_boundary_pass_is_noaa():
     assert GATES["Boundary Pass"].provider == "noaa"
     assert GATES["Boundary Pass"].noaa_bin == 35

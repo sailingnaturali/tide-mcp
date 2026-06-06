@@ -39,16 +39,18 @@ _GATE_LIST = [
     Gate("Hole in the Wall", "chs", "63aefcb26a2b9417c035071e", 50.3001, -125.2083, 20),
     Gate("Gillard Passage", "chs", "5dd3064fe0fdc4b9b4be6978", 50.3933, -125.1567, 20),
     Gate("Dent Rapids", "chs", "63af06d56a2b9417c0353451", 50.4100, -125.2117, 20),
+    Gate("Arran Rapids", "chs", "63aeff5884e5432cd3b71283", 50.4200, -125.1400, 20),
     Gate("Boundary Pass", "noaa", "PUG1717", 48.6912, -123.2450, 30, noaa_bin=35),
 ]
 
 GATES: dict[str, Gate] = {g.name: g for g in _GATE_LIST}
 
-# Active Pass, Porlier Pass, Gabriola Passage, and Hole in the Wall are reachable
-# via get_tidal_gate by name but are intentionally not on any Victoria-origin route:
-# the Gulf Islands passes gate crossings from the Strait/Vancouver side, and Hole in
-# the Wall is an alternate Discovery Islands gate. Wire passages for them if/when a
-# routing direction is confirmed.
+# Active Pass, Porlier Pass, Gabriola Passage, Hole in the Wall, and Arran Rapids
+# are reachable via get_tidal_gate by name but are intentionally not on any
+# Victoria-origin route: the Gulf Islands passes gate crossings from the
+# Strait/Vancouver side; Hole in the Wall is an alternate Discovery Islands gate;
+# Arran is the Bute Inlet entrance north of Stuart Island (the Cordero route runs
+# Gillard→Dent). Wire passages for them if/when a routing direction is confirmed.
 PASSAGES: tuple[Passage, ...] = (
     Passage("Nanaimo", ("nanaimo", "newcastle island"),
             ("Dodd Narrows",), "Protected inside route; Dodd is the final gate."),
