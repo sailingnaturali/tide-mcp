@@ -127,7 +127,7 @@ async def get_tidal_gate(
     events = await currents.events_for_station(gate.station_id)
     return {
         "name": gate.name,
-        "slack_windows": _slack_windows([e for e in events if e.utc >= after], 3, after),
+        "slack_windows": _slack_windows(events, 3, after),
         "transit_window_minutes": gate.transit_window_minutes,
     }
 

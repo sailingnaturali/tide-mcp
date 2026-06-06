@@ -20,7 +20,10 @@ class CurrentsClient:
     """Fetches /currents once per process lifetime cheaply (in-memory), maps
     stationId -> events. `getter` is injectable for tests."""
 
-    def __init__(self, signalk_url: str, getter: Callable[[str], Awaitable[dict]] | None = None) -> None:
+    def __init__(
+        self, signalk_url: str,
+        getter: Callable[[str], Awaitable[dict] | dict] | None = None,
+    ) -> None:
         self._url = signalk_url.rstrip("/") + CURRENTS_PATH
         self._getter = getter or self._http_get
         self._cache: dict[str, list[CurrentEvent]] | None = None
