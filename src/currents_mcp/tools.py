@@ -10,11 +10,11 @@ import math
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
-from tide_mcp.cache import EventCache
-from tide_mcp.client import RateLimitedClient
-from tide_mcp.fetch import gate_events, tide_height_events
-from tide_mcp.passages import GATES, Gate, PASSAGES, coverage, find_gate, match_destination
-from tide_mcp.providers import CurrentEvent, _iso_z, _parse_dt
+from currents_mcp.cache import EventCache
+from currents_mcp.client import RateLimitedClient
+from currents_mcp.fetch import gate_events, tide_height_events
+from currents_mcp.passages import GATES, Gate, PASSAGES, coverage, find_gate, match_destination
+from currents_mcp.providers import CurrentEvent, _iso_z, _parse_dt
 
 VICTORIA = (48.42, -123.37)
 DEFAULT_SPEED_KNOTS = 6.0

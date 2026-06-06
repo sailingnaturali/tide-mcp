@@ -2,9 +2,9 @@ import httpx
 import pytest
 import respx
 
-from tide_mcp.cache import EventCache
-from tide_mcp.client import RateLimitedClient
-from tide_mcp.server import TOOL_NAMES, build_server, dispatch
+from currents_mcp.cache import EventCache
+from currents_mcp.client import RateLimitedClient
+from currents_mcp.server import TOOL_NAMES, build_server, dispatch
 
 DAY = [
     {"eventDate": "2026-05-24T09:14:00Z", "qualifier": "SLACK", "value": 0.0},
@@ -20,7 +20,7 @@ async def test_build_server_names_it():
     cache = EventCache(":memory:"); cache.init_schema()
     client = RateLimitedClient()
     server = build_server(client, cache)
-    assert server.name == "tide-mcp"
+    assert server.name == "currents-mcp"
     await client.aclose(); cache.close()
 
 

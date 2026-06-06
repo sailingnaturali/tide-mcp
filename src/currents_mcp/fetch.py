@@ -7,10 +7,10 @@ from __future__ import annotations
 import math
 from datetime import date, datetime, timedelta, timezone
 
-from tide_mcp.cache import EventCache
-from tide_mcp.client import RateLimitedClient
-from tide_mcp.passages import Gate
-from tide_mcp.providers import (
+from currents_mcp.cache import EventCache
+from currents_mcp.client import RateLimitedClient
+from currents_mcp.passages import Gate
+from currents_mcp.providers import (
     CurrentEvent,
     TideHeightEvent,
     _classify_height_kinds,

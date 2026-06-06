@@ -1,8 +1,8 @@
 import httpx
 import respx
 
-from tide_mcp.client import RateLimitedClient
-from tide_mcp.providers import CurrentEvent, fetch_chs_events, fetch_noaa_events
+from currents_mcp.client import RateLimitedClient
+from currents_mcp.providers import CurrentEvent, fetch_chs_events, fetch_noaa_events
 from datetime import datetime, timezone
 
 CHS_EVENTS = [
@@ -99,13 +99,13 @@ async def test_fetch_noaa_events_skips_unknown_type():
 
 
 def test_tide_height_event_roundtrips_via_dict():
-    from tide_mcp.providers import TideHeightEvent
+    from currents_mcp.providers import TideHeightEvent
     e = TideHeightEvent(datetime(2026, 5, 26, 9, 48, tzinfo=timezone.utc), "high", 3.05)
     assert TideHeightEvent.from_dict(e.to_dict()) == e
 
 
 def test_tide_height_event_to_dict_serializes_utc_as_iso():
-    from tide_mcp.providers import TideHeightEvent
+    from currents_mcp.providers import TideHeightEvent
     e = TideHeightEvent(datetime(2026, 5, 26, 9, 48, tzinfo=timezone.utc), "low", 1.2)
     d = e.to_dict()
     assert d["utc"] == "2026-05-26T09:48:00+00:00"
@@ -123,7 +123,7 @@ HILO_STARTS_HIGH = [
 
 @respx.mock
 async def test_fetch_chs_height_events_classifies_starting_high():
-    from tide_mcp.providers import fetch_chs_height_events
+    from currents_mcp.providers import fetch_chs_height_events
     route = respx.get("https://api-sine.dfo-mpo.gc.ca/api/v1/stations/STN/data").mock(
         return_value=httpx.Response(200, json=HILO_STARTS_HIGH)
     )
@@ -141,7 +141,7 @@ async def test_fetch_chs_height_events_classifies_starting_high():
 
 @respx.mock
 async def test_fetch_chs_height_events_classifies_starting_low():
-    from tide_mcp.providers import fetch_chs_height_events
+    from currents_mcp.providers import fetch_chs_height_events
     payload = [
         {"eventDate": "2026-05-26T07:00:00Z", "value": 0.5},
         {"eventDate": "2026-05-26T13:00:00Z", "value": 3.1},
@@ -160,7 +160,7 @@ async def test_fetch_chs_height_events_classifies_starting_low():
 
 @respx.mock
 async def test_fetch_chs_height_events_single_event_is_high():
-    from tide_mcp.providers import fetch_chs_height_events
+    from currents_mcp.providers import fetch_chs_height_events
     respx.get("https://api-sine.dfo-mpo.gc.ca/api/v1/stations/STN/data").mock(
         return_value=httpx.Response(200, json=[{"eventDate": "2026-05-26T07:00:00Z", "value": 2.0}])
     )
@@ -175,7 +175,7 @@ async def test_fetch_chs_height_events_single_event_is_high():
 
 @respx.mock
 async def test_fetch_chs_height_events_empty():
-    from tide_mcp.providers import fetch_chs_height_events
+    from currents_mcp.providers import fetch_chs_height_events
     respx.get("https://api-sine.dfo-mpo.gc.ca/api/v1/stations/STN/data").mock(
         return_value=httpx.Response(200, json=[])
     )
@@ -198,7 +198,7 @@ STATIONS_JSON = [
 
 @respx.mock
 async def test_fetch_chs_stations_returns_raw_list():
-    from tide_mcp.providers import fetch_chs_stations
+    from currents_mcp.providers import fetch_chs_stations
     route = respx.get("https://api-sine.dfo-mpo.gc.ca/api/v1/stations").mock(
         return_value=httpx.Response(200, json=STATIONS_JSON)
     )

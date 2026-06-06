@@ -5,10 +5,10 @@ import httpx
 import pytest
 import respx
 
-from tide_mcp.cache import EventCache
-from tide_mcp.client import RateLimitedClient
-from tide_mcp.fetch import ProviderNotImplemented, gate_events
-from tide_mcp.passages import GATES
+from currents_mcp.cache import EventCache
+from currents_mcp.client import RateLimitedClient
+from currents_mcp.fetch import ProviderNotImplemented, gate_events
+from currents_mcp.passages import GATES
 
 HEIGHT_STATIONS = [
     {"id": "AAA", "officialName": "Near Station", "latitude": 48.76, "longitude": -123.05,
@@ -29,7 +29,7 @@ HILO_DAY = [
 
 @respx.mock
 async def test_get_cached_stations_filters_and_caches(tmp_path):
-    from tide_mcp.fetch import get_cached_stations
+    from currents_mcp.fetch import get_cached_stations
     route = respx.get("https://api-sine.dfo-mpo.gc.ca/api/v1/stations").mock(
         return_value=httpx.Response(200, json=HEIGHT_STATIONS)
     )
@@ -49,7 +49,7 @@ async def test_get_cached_stations_filters_and_caches(tmp_path):
 
 
 def test_nearest_height_station_picks_closest():
-    from tide_mcp.fetch import _nearest_height_station
+    from currents_mcp.fetch import _nearest_height_station
     stations = [
         {"id": "AAA", "officialName": "Near", "latitude": 48.76, "longitude": -123.05},
         {"id": "BBB", "officialName": "Far", "latitude": 50.0, "longitude": -125.0},
@@ -60,7 +60,7 @@ def test_nearest_height_station_picks_closest():
 
 @respx.mock
 async def test_tide_height_events_orchestrates(tmp_path):
-    from tide_mcp.fetch import tide_height_events
+    from currents_mcp.fetch import tide_height_events
     respx.get("https://api-sine.dfo-mpo.gc.ca/api/v1/stations").mock(
         return_value=httpx.Response(200, json=HEIGHT_STATIONS)
     )
@@ -83,7 +83,7 @@ async def test_tide_height_events_orchestrates(tmp_path):
 async def test_tide_height_events_reclassifies_across_days(tmp_path):
     """Each cached day is classified independently; a one-event day at the seam
     would mis-alternate without the orchestrator-level reclassify."""
-    from tide_mcp.fetch import tide_height_events
+    from currents_mcp.fetch import tide_height_events
     respx.get("https://api-sine.dfo-mpo.gc.ca/api/v1/stations").mock(
         return_value=httpx.Response(200, json=HEIGHT_STATIONS)
     )
@@ -112,7 +112,7 @@ async def test_tide_height_events_reclassifies_across_days(tmp_path):
 
 @respx.mock
 async def test_tide_height_events_caches_day(tmp_path):
-    from tide_mcp.fetch import tide_height_events
+    from currents_mcp.fetch import tide_height_events
     respx.get("https://api-sine.dfo-mpo.gc.ca/api/v1/stations").mock(
         return_value=httpx.Response(200, json=HEIGHT_STATIONS)
     )

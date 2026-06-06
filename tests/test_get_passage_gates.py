@@ -1,9 +1,9 @@
 import httpx
 import respx
 
-from tide_mcp.cache import EventCache
-from tide_mcp.client import RateLimitedClient
-from tide_mcp.tools import get_passage_gates
+from currents_mcp.cache import EventCache
+from currents_mcp.client import RateLimitedClient
+from currents_mcp.tools import get_passage_gates
 
 # Gillard Passage is ~137 nm from Victoria -> ~23h at 6 kn. Departing 2026-05-24T00:00Z,
 # the earliest reachable slack must be ~23h out, so the slack lands on 2026-05-25.

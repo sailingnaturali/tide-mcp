@@ -8,9 +8,9 @@ from datetime import datetime, timezone
 
 import pytest
 
-from tide_mcp.cache import EventCache
-from tide_mcp.client import RateLimitedClient
-from tide_mcp.tools import get_tidal_gate
+from currents_mcp.cache import EventCache
+from currents_mcp.client import RateLimitedClient
+from currents_mcp.tools import get_tidal_gate
 
 pytestmark = pytest.mark.skipif(
     os.environ.get("TIDE_TEST_LIVE") != "1",

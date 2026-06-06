@@ -1,6 +1,6 @@
 """Async HTTP client with a single sliding-window request limiter.
 
-Defaults to 30 requests per 60s to stay under the CHS cap. tide-mcp makes only
+Defaults to 30 requests per 60s to stay under the CHS cap. currents-mcp makes only
 1-3 serialized calls per request, so a separate per-second limiter is unneeded.
 """
 

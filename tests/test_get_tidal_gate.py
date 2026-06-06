@@ -1,9 +1,9 @@
 import httpx
 import respx
 
-from tide_mcp.cache import EventCache
-from tide_mcp.client import RateLimitedClient
-from tide_mcp.tools import get_tidal_gate
+from currents_mcp.cache import EventCache
+from currents_mcp.client import RateLimitedClient
+from currents_mcp.tools import get_tidal_gate
 
 DAY = [
     {"eventDate": "2026-05-24T06:14:00Z", "qualifier": "EXTREMA_EBB", "value": 5.0},

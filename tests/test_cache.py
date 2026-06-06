@@ -1,6 +1,6 @@
 import time
 
-from tide_mcp.cache import EventCache
+from currents_mcp.cache import EventCache
 
 
 def test_get_missing_returns_none(tmp_path):

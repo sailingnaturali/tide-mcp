@@ -1,6 +1,6 @@
-"""tide-mcp server. Exposes tidal-gate tools to any MCP client over stdio.
+"""currents-mcp server. Exposes tidal-gate tools to any MCP client over stdio.
 
-Cache path comes from TIDE_CACHE_PATH (default ~/.tide-mcp/cache.sqlite).
+Cache path comes from CURRENTS_CACHE_PATH (default ~/.currents-mcp/cache.sqlite).
 """
 
 from __future__ import annotations
@@ -15,9 +15,9 @@ import mcp.types as types
 from mcp.server import Server
 from mcp.server.stdio import stdio_server
 
-from tide_mcp.cache import EventCache
-from tide_mcp.client import RateLimitedClient
-from tide_mcp.tools import get_passage_gates, get_tidal_gate, get_tide_heights, list_gates
+from currents_mcp.cache import EventCache
+from currents_mcp.client import RateLimitedClient
+from currents_mcp.tools import get_passage_gates, get_tidal_gate, get_tide_heights, list_gates
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +46,7 @@ async def dispatch(client: RateLimitedClient, cache: EventCache, name: str, args
 
 
 def build_server(client: RateLimitedClient, cache: EventCache) -> Server:
-    server = Server("tide-mcp")
+    server = Server("currents-mcp")
 
     @server.list_tools()
     async def _list_tools() -> list[types.Tool]:
@@ -106,7 +106,7 @@ def build_server(client: RateLimitedClient, cache: EventCache) -> Server:
 
 
 def main() -> None:
-    cache_path = os.environ.get("TIDE_CACHE_PATH", str(Path.home() / ".tide-mcp" / "cache.sqlite"))
+    cache_path = os.environ.get("CURRENTS_CACHE_PATH", str(Path.home() / ".currents-mcp" / "cache.sqlite"))
     Path(cache_path).parent.mkdir(parents=True, exist_ok=True)
     cache = EventCache(cache_path)
     cache.init_schema()

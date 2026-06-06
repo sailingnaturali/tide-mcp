@@ -1,4 +1,4 @@
-from tide_mcp.tools import list_gates
+from currents_mcp.tools import list_gates
 
 
 def test_list_gates_reports_coverage():

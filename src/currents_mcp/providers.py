@@ -9,7 +9,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 
-from tide_mcp.client import RateLimitedClient
+from currents_mcp.client import RateLimitedClient
 
 CHS_BASE = "https://api-sine.dfo-mpo.gc.ca/api/v1"
 
@@ -95,7 +95,7 @@ async def fetch_noaa_events(
         "time_zone": "gmt",
         "units": "english",
         "format": "json",
-        "application": "tide-mcp",
+        "application": "currents-mcp",
         "station": station_id,
         "bin": str(bin_n),
         "begin_date": start.astimezone(timezone.utc).strftime("%Y%m%d"),
