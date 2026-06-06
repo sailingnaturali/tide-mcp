@@ -1,5 +1,5 @@
 [project]
-name = "tide-mcp"
+name = "currents-mcp"
 version = "0.2.0"
 description = "MCP server exposing PNW tidal-gate slack windows as agent tools"
 readme = "README.md"
@@ -15,7 +15,7 @@ dependencies = [
 ]
 
 [project.scripts]
-tide-mcp = "tide_mcp.server:main"
+currents-mcp = "currents_mcp.server:main"
 
 [build-system]
 requires = ["uv_build>=0.11.14,<0.12.0"]

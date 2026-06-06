@@ -1,7 +1,7 @@
 import httpx
 import respx
 
-from tide_mcp.client import RateLimitedClient
+from currents_mcp.client import RateLimitedClient
 
 
 async def test_limiter_sleeps_when_window_full():

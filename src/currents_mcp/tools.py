@@ -10,11 +10,12 @@ import math
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
-from tide_mcp.cache import EventCache
-from tide_mcp.client import RateLimitedClient
-from tide_mcp.fetch import gate_events, tide_height_events
-from tide_mcp.passages import GATES, Gate, PASSAGES, coverage, find_gate, match_destination
-from tide_mcp.providers import CurrentEvent, _iso_z, _parse_dt
+from currents_mcp.cache import EventCache
+from currents_mcp.client import RateLimitedClient
+from currents_mcp.currents_source import CurrentsClient
+from currents_mcp.fetch import tide_height_events
+from currents_mcp.passages import GATES, Gate, PASSAGES, coverage, find_gate, match_destination
+from currents_mcp.providers import CurrentEvent, _iso_z, _parse_dt
 
 VICTORIA = (48.42, -123.37)
 DEFAULT_SPEED_KNOTS = 6.0
@@ -116,14 +117,14 @@ def _gate_suggestions() -> str:
 
 
 async def get_tidal_gate(
-    client: RateLimitedClient, cache: EventCache, name: str, date: str | None = None
+    currents: CurrentsClient, name: str, date: str | None = None
 ) -> dict:
     """Return the next 3 slack windows for a single named gate."""
     gate = find_gate(name)
     if gate is None:
         return {"unmatched": True, "suggestions_display": _gate_suggestions()}
     after = _parse_dt_arg(date)
-    events = await gate_events(client, cache, gate, after)
+    events = await currents.events_for_station(gate.station_id)
     return {
         "name": gate.name,
         "slack_windows": _slack_windows(events, 3, after),
@@ -136,8 +137,7 @@ def _destination_suggestions() -> str:
 
 
 async def get_passage_gates(
-    client: RateLimitedClient,
-    cache: EventCache,
+    currents: CurrentsClient,
     destination: str,
     depart_time: str | None = None,
     from_lat: float | None = None,
@@ -162,7 +162,7 @@ async def get_passage_gates(
     gates_out: list[dict] = []
     for idx, gname in enumerate(passage.gate_names):
         gate = GATES[gname]
-        events = await gate_events(client, cache, gate, depart)
+        events = await currents.events_for_station(gate.station_id)
         entry = {
             "name": gate.name,
             "slack_windows": _slack_windows(events, 3, depart),

@@ -3,9 +3,9 @@ from datetime import datetime, timezone
 import httpx
 import respx
 
-from tide_mcp.cache import EventCache
-from tide_mcp.client import RateLimitedClient
-from tide_mcp.tools import _fmt_height, get_tide_heights
+from currents_mcp.cache import EventCache
+from currents_mcp.client import RateLimitedClient
+from currents_mcp.tools import _fmt_height, get_tide_heights
 
 HEIGHT_STATIONS = [
     {"id": "AAA", "officialName": "Montague Harbour", "latitude": 48.76, "longitude": -123.05,

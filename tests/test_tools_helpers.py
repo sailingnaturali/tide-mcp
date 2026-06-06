@@ -1,9 +1,9 @@
 import re
 from datetime import datetime, timezone
 
-from tide_mcp.passages import GATES
-from tide_mcp.providers import CurrentEvent
-from tide_mcp.tools import (
+from currents_mcp.passages import GATES
+from currents_mcp.providers import CurrentEvent
+from currents_mcp.tools import (
     VICTORIA,
     _direction_label,
     _fmt_slack,

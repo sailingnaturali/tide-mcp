@@ -1,4 +1,4 @@
-from tide_mcp.passages import GATES, find_gate, match_destination, coverage
+from currents_mcp.passages import GATES, find_gate, match_destination, coverage
 
 
 def test_known_gate_has_chs_station():
