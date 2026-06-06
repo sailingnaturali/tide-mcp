@@ -24,6 +24,10 @@ logger = logging.getLogger(__name__)
 
 TOOL_NAMES = ["get_passage_gates", "get_tidal_gate", "list_gates", "get_tide_heights"]
 
+# The boat's SignalK server (Pi 5). Not localhost: the mac-dev rig is retired,
+# and an unreachable /currents degrades silently to empty slack windows.
+DEFAULT_SIGNALK_URL = "http://naturalaspi.local:3000"
+
 
 async def dispatch(
     client: RateLimitedClient, cache: EventCache, currents: CurrentsClient, name: str, args: dict
@@ -114,7 +118,7 @@ def main() -> None:
     cache = EventCache(cache_path)
     cache.init_schema()
     client = RateLimitedClient()
-    currents = CurrentsClient(os.environ.get("SIGNALK_URL", "http://localhost:3000"))
+    currents = CurrentsClient(os.environ.get("SIGNALK_URL", DEFAULT_SIGNALK_URL))
     server = build_server(client, cache, currents)
 
     async def _run() -> None:

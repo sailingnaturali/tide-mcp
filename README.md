@@ -22,9 +22,12 @@ Example response:
     {
       "name": "Gillard Passage",
       "slack_windows": [
-        {"display": "Sun 21:14 PDT (slack, ebb→flood)", "utc": "2026-05-25T04:14:00Z"}
+        {"display": "Sun 21:14 PDT (slack, ebb→flood — flood sets south-southeast)", "utc": "2026-05-25T04:14:00Z"}
       ],
       "transit_window_minutes": 20,
+      "sets_display": "Flood sets south-southeast; ebb sets north-northwest.",
+      "flood_dir_true": 160,
+      "ebb_dir_true": 340,
       "recommended_depart_display": "Depart by 18:45 PDT to hit Gillard Passage at slack."
     },
     {
@@ -43,7 +46,11 @@ Example response:
 
 ### `get_tidal_gate(name, date?)`
 
-Returns the next 3 slack windows for a single named gate: `{"name", "slack_windows", "transit_window_minutes"}`. Unknown gate name returns `{"unmatched": true, "suggestions_display": ...}`.
+Returns the next 3 slack windows for a single named gate: `{"name", "slack_windows", "transit_window_minutes", "sets_display", "flood_dir_true", "ebb_dir_true"}`. Unknown gate name returns `{"unmatched": true, "suggestions_display": ...}`.
+
+Flood/ebb set comes from the plugin's station config (signalk-currents >= 0.3.0);
+on older payloads `sets_display` and the `*_dir_true` fields are `null` and slack
+windows fall back to the plain `(slack, ebb→flood)` form.
 
 ### `list_gates()`
 
@@ -102,7 +109,7 @@ Current speeds in knots. Heights in metres. Times rendered in America/Vancouver 
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `SIGNALK_URL` | `http://localhost:3000` | Base URL of the SignalK server running `signalk-currents`; the gate tools GET `/plugins/signalk-currents/currents` from here |
+| `SIGNALK_URL` | `http://naturalaspi.local:3000` | Base URL of the SignalK server running `signalk-currents`; the gate tools GET `/signalk/v2/api/resources/currents` from here |
 | `CURRENTS_CACHE_PATH` | `~/.currents-mcp/cache.sqlite` | Path to the SQLite response cache (tide-height predictions) |
 
 ## Run

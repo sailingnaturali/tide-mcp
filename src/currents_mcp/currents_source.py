@@ -13,8 +13,13 @@ from currents_mcp.providers import CurrentEvent, _parse_dt
 CURRENTS_PATH = "/signalk/v2/api/resources/currents"
 
 
-def _event_from_plugin(d: dict) -> CurrentEvent:
-    return CurrentEvent(utc=_parse_dt(d["utc"]), kind=d["kind"], speed_knots=float(d["speedKn"]))
+def _event_from_plugin(d: dict, flood_dir: int | None, ebb_dir: int | None) -> CurrentEvent:
+    """Map a plugin event; flood/ebb set (°true) is station-level config carried
+    onto every event (absent from plugin < 0.3.0 payloads -> None)."""
+    return CurrentEvent(
+        utc=_parse_dt(d["utc"]), kind=d["kind"], speed_knots=float(d["speedKn"]),
+        flood_dir=flood_dir, ebb_dir=ebb_dir,
+    )
 
 
 class CurrentsClient:
@@ -50,8 +55,10 @@ class CurrentsClient:
             print(f"currents-mcp: /currents fetch failed: {e}", file=sys.stderr)
             return {}
         self._cache = {
-            s["stationId"]: sorted((_event_from_plugin(e) for e in s.get("events", [])),
-                                   key=lambda e: e.utc)
+            s["stationId"]: sorted(
+                (_event_from_plugin(e, s.get("floodDir"), s.get("ebbDir"))
+                 for e in s.get("events", [])),
+                key=lambda e: e.utc)
             for s in payload.get("stations", [])
         }
         return self._cache

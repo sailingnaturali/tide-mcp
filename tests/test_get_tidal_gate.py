@@ -6,7 +6,7 @@ from currents_mcp.tools import get_tidal_gate
 # by a flood, so its direction label is ebb->flood.
 PAYLOAD = {"stations": [
     {"stationId": "63aef1866a2b9417c035030f", "label": "Dodd Narrows",
-     "lat": 49.1344, "lon": -123.8171, "events": [
+     "lat": 49.1344, "lon": -123.8171, "floodDir": 340, "ebbDir": 160, "events": [
          {"utc": "2026-05-24T06:14:00Z", "kind": "ebb", "speedKn": 5.0},
          {"utc": "2026-05-24T09:14:00Z", "kind": "slack", "speedKn": 0.0},
          {"utc": "2026-05-24T12:14:00Z", "kind": "flood", "speedKn": 6.0},
@@ -26,6 +26,26 @@ async def test_get_tidal_gate_returns_slack_windows():
     assert result["transit_window_minutes"] == 30
     assert result["slack_windows"][0]["utc"] == "2026-05-24T09:14:00Z"
     assert "ebb→flood" in result["slack_windows"][0]["display"]
+
+
+async def test_get_tidal_gate_names_flood_and_ebb_sets():
+    """The gate answer says which way flood and ebb flow, in words and °true."""
+    currents = _client(PAYLOAD)
+    result = await get_tidal_gate(currents, "Dodd Narrows", date="2026-05-24")
+    assert result["sets_display"] == (
+        "Flood sets north-northwest; ebb sets south-southeast."
+    )
+    assert result["flood_dir_true"] == 340
+    assert result["ebb_dir_true"] == 160
+
+
+async def test_get_tidal_gate_sets_none_when_plugin_predates_dirs():
+    """Boundary payload carries no dirs (plugin < 0.3.0): no sets fields, no crash."""
+    currents = _client(BOUNDARY_PAYLOAD)
+    result = await get_tidal_gate(currents, "Boundary Pass", date="2026-05-24")
+    assert result["sets_display"] is None
+    assert result["flood_dir_true"] is None
+    assert result["ebb_dir_true"] is None
 
 
 async def test_get_tidal_gate_unknown_name_suggests():

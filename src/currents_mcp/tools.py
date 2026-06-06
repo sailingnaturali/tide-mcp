@@ -38,6 +38,21 @@ def _haversine_nm(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
 
 _OPPOSITE = {"flood": "ebb", "ebb": "flood"}
 
+# 16-point compass, full words: speakable as-is (TTS reads "SSE" as letters).
+_COMPASS_POINTS = [
+    "north", "north-northeast", "northeast", "east-northeast",
+    "east", "east-southeast", "southeast", "south-southeast",
+    "south", "south-southwest", "southwest", "west-southwest",
+    "west", "west-northwest", "northwest", "north-northwest",
+]
+
+
+def _compass(degrees_true: float | None) -> str | None:
+    """Degrees true -> 16-point compass word, e.g. 340 -> 'north-northwest'."""
+    if degrees_true is None:
+        return None
+    return _COMPASS_POINTS[round(degrees_true / 22.5) % 16]
+
 
 def _direction_label(prev_kind: str | None, next_kind: str | None) -> str:
     """Turn the surrounding extrema into a 'ebb→flood' style slack label.
@@ -59,6 +74,18 @@ def _fmt_slack(utc: datetime, direction: str) -> str:
     return f"{local:%a %H:%M} {local:%Z} (slack, {direction})"
 
 
+def _incoming_set(event: CurrentEvent, prev_kind: str | None, next_kind: str | None) -> str | None:
+    """Which way the stream after this slack flows, e.g. 'flood sets north-northwest'.
+
+    None when the station's set directions are unknown (plugin < 0.3.0).
+    """
+    incoming = next_kind or (_OPPOSITE[prev_kind] if prev_kind else None)
+    if incoming is None:
+        return None
+    word = _compass(event.flood_dir if incoming == "flood" else event.ebb_dir)
+    return f"{incoming} sets {word}" if word else None
+
+
 def _fmt_height(utc: datetime, kind: str, height_m: float) -> str:
     """e.g. 'Low 09:31 PDT — 1.2 m'."""
     local = utc.astimezone(DISPLAY_TZ)
@@ -76,8 +103,12 @@ def _slack_windows(events: list[CurrentEvent], limit: int, after: datetime) -> l
                           if events[j].kind in ("flood", "ebb")), None)
         next_kind = next((events[j].kind for j in range(i + 1, len(events))
                           if events[j].kind in ("flood", "ebb")), None)
+        label = _direction_label(prev_kind, next_kind)
+        set_clause = _incoming_set(e, prev_kind, next_kind)
+        if set_clause:
+            label = f"{label} — {set_clause}"
         windows.append({
-            "display": _fmt_slack(e.utc, _direction_label(prev_kind, next_kind)),
+            "display": _fmt_slack(e.utc, label),
             "utc": _iso_z(e.utc),
         })
         if len(windows) >= limit:
@@ -112,6 +143,19 @@ def _parse_dt_arg(value: str | None) -> datetime:
     return _parse_dt(v)
 
 
+def _gate_sets(events: list[CurrentEvent]) -> dict:
+    """Station-level flood/ebb set, in words and °true — the 'which way does it
+    flow' answer. All None when the plugin payload predates floodDir/ebbDir."""
+    flood_dir = next((e.flood_dir for e in events if e.flood_dir is not None), None)
+    ebb_dir = next((e.ebb_dir for e in events if e.ebb_dir is not None), None)
+    flood_word, ebb_word = _compass(flood_dir), _compass(ebb_dir)
+    display = (
+        f"Flood sets {flood_word}; ebb sets {ebb_word}."
+        if flood_word and ebb_word else None
+    )
+    return {"sets_display": display, "flood_dir_true": flood_dir, "ebb_dir_true": ebb_dir}
+
+
 def _gate_suggestions() -> str:
     return "Known gates: " + ", ".join(GATES.keys()) + "."
 
@@ -129,6 +173,7 @@ async def get_tidal_gate(
         "name": gate.name,
         "slack_windows": _slack_windows(events, 3, after),
         "transit_window_minutes": gate.transit_window_minutes,
+        **_gate_sets(events),
     }
 
 
@@ -167,6 +212,7 @@ async def get_passage_gates(
             "name": gate.name,
             "slack_windows": _slack_windows(events, 3, depart),
             "transit_window_minutes": gate.transit_window_minutes,
+            **_gate_sets(events),
         }
         if idx == 0:
             entry["recommended_depart_display"] = _recommended_depart(gate, events, depart, origin)

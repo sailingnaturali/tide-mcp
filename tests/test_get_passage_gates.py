@@ -11,7 +11,7 @@ _DAY = [
 ]
 PAYLOAD = {"stations": [
     {"stationId": "5dd3064fe0fdc4b9b4be6978", "label": "Gillard Passage",
-     "lat": 50.3933, "lon": -125.1567, "events": _DAY},
+     "lat": 50.3933, "lon": -125.1567, "floodDir": 160, "ebbDir": 340, "events": _DAY},
     {"stationId": "63af06d56a2b9417c0353451", "label": "Dent Rapids",
      "lat": 50.4100, "lon": -125.2117, "events": _DAY},
 ]}
@@ -31,6 +31,11 @@ async def test_passage_multi_gate_first_gets_departure():
     assert result["gates"][0]["recommended_depart_display"] is not None
     assert result["gates"][1]["recommended_depart_display"] is None
     assert "note_display" in result["gates"][1]
+    # Gillard carries dirs; Dent (deliberately) doesn't — each gate stands alone.
+    assert result["gates"][0]["sets_display"] == (
+        "Flood sets south-southeast; ebb sets north-northwest."
+    )
+    assert result["gates"][1]["sets_display"] is None
 
 
 async def test_passage_open_water_returns_empty_gates():

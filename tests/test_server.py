@@ -5,7 +5,7 @@ import respx
 from currents_mcp.cache import EventCache
 from currents_mcp.client import RateLimitedClient
 from currents_mcp.currents_source import CurrentsClient
-from currents_mcp.server import TOOL_NAMES, build_server, dispatch
+from currents_mcp.server import DEFAULT_SIGNALK_URL, TOOL_NAMES, build_server, dispatch
 
 # Dodd Narrows station_id; slack at 09:14Z.
 CURRENTS_PAYLOAD = {"stations": [
@@ -23,6 +23,13 @@ def _currents(payload):
 
 def test_tool_names():
     assert TOOL_NAMES == ["get_passage_gates", "get_tidal_gate", "list_gates", "get_tide_heights"]
+
+
+def test_default_signalk_url_targets_the_boat():
+    """The mac-dev rig is retired — nothing answers on localhost:3000, and the
+    fetch degrades silently to empty windows, so a wrong default looks like
+    'no slack windows' rather than an error."""
+    assert DEFAULT_SIGNALK_URL == "http://naturalaspi.local:3000"
 
 
 async def test_build_server_names_it():

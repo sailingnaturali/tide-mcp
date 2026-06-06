@@ -5,12 +5,25 @@ from currents_mcp.passages import GATES
 from currents_mcp.providers import CurrentEvent
 from currents_mcp.tools import (
     VICTORIA,
+    _compass,
     _direction_label,
     _fmt_slack,
     _haversine_nm,
     _recommended_depart,
     _slack_windows,
 )
+
+
+def test_compass_words():
+    # 16-point, full words: speakable as-is (no "SSE" letter salad for TTS).
+    assert _compass(0) == "north"
+    assert _compass(160) == "south-southeast"
+    assert _compass(340) == "north-northwest"
+    assert _compass(90) == "east"
+
+
+def test_compass_none_passthrough():
+    assert _compass(None) is None
 
 
 def test_direction_label_no_neighbors():
@@ -33,8 +46,9 @@ def test_haversine_known_distance():
     assert 40 < nm < 55
 
 
-def _ev(h, kind, spd=1.0):
-    return CurrentEvent(datetime(2026, 5, 24, h, 0, tzinfo=timezone.utc), kind, spd)
+def _ev(h, kind, spd=1.0, flood_dir=None, ebb_dir=None):
+    return CurrentEvent(datetime(2026, 5, 24, h, 0, tzinfo=timezone.utc), kind, spd,
+                        flood_dir=flood_dir, ebb_dir=ebb_dir)
 
 
 def test_slack_windows_label_direction_from_neighbors():
@@ -45,6 +59,25 @@ def test_slack_windows_label_direction_from_neighbors():
     assert "ebb→flood" in windows[0]["display"]
     assert "flood→ebb" in windows[1]["display"]
     assert windows[0]["utc"] == "2026-05-24T06:00:00Z"
+
+
+def test_slack_windows_say_incoming_set():
+    """Each slack names which way the incoming stream flows — the millijuna fix."""
+    kw = {"flood_dir": 160, "ebb_dir": 340}
+    events = [_ev(2, "ebb", 5.0, **kw), _ev(6, "slack", 0.0, **kw),
+              _ev(9, "flood", 6.0, **kw), _ev(13, "slack", 0.0, **kw)]
+    after = datetime(2026, 5, 24, 0, 0, tzinfo=timezone.utc)
+    windows = _slack_windows(events, 5, after)
+    assert "ebb→flood — flood sets south-southeast" in windows[0]["display"]
+    assert "flood→ebb — ebb sets north-northwest" in windows[1]["display"]
+
+
+def test_slack_windows_unchanged_when_set_unknown():
+    """Plugin < 0.3.0 payloads (no dirs) keep the exact old display format."""
+    events = [_ev(2, "ebb", 5.0), _ev(6, "slack", 0.0), _ev(9, "flood", 6.0)]
+    after = datetime(2026, 5, 24, 0, 0, tzinfo=timezone.utc)
+    windows = _slack_windows(events, 5, after)
+    assert windows[0]["display"].endswith("(slack, ebb→flood)")
 
 
 def test_slack_windows_respects_after_and_limit():

@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 import pytest
 
 from currents_mcp.currents_source import CurrentsClient
+from currents_mcp.server import DEFAULT_SIGNALK_URL
 from currents_mcp.tools import get_tidal_gate
 
 pytestmark = pytest.mark.skipif(
@@ -19,7 +20,7 @@ pytestmark = pytest.mark.skipif(
 
 
 async def test_dodd_narrows_returns_slack_today():
-    currents = CurrentsClient(os.environ.get("SIGNALK_URL", "http://localhost:3000"))
+    currents = CurrentsClient(os.environ.get("SIGNALK_URL", DEFAULT_SIGNALK_URL))
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     result = await get_tidal_gate(currents, "Dodd Narrows", date=today)
     assert result["name"] == "Dodd Narrows"
