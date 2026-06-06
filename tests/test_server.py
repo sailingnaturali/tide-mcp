@@ -4,12 +4,21 @@ import respx
 
 from currents_mcp.cache import EventCache
 from currents_mcp.client import RateLimitedClient
+from currents_mcp.currents_source import CurrentsClient
 from currents_mcp.server import TOOL_NAMES, build_server, dispatch
 
-DAY = [
-    {"eventDate": "2026-05-24T09:14:00Z", "qualifier": "SLACK", "value": 0.0},
-    {"eventDate": "2026-05-24T12:14:00Z", "qualifier": "EXTREMA_FLOOD", "value": 6.0},
-]
+# Dodd Narrows station_id; slack at 09:14Z.
+CURRENTS_PAYLOAD = {"stations": [
+    {"stationId": "63aef1866a2b9417c035030f", "label": "Dodd Narrows",
+     "lat": 49.1344, "lon": -123.8171, "events": [
+         {"utc": "2026-05-24T09:14:00Z", "kind": "slack", "speedKn": 0.0},
+         {"utc": "2026-05-24T12:14:00Z", "kind": "flood", "speedKn": 6.0},
+     ]},
+]}
+
+
+def _currents(payload):
+    return CurrentsClient("http://signalk:3000", getter=lambda url: payload)
 
 
 def test_tool_names():
@@ -19,27 +28,29 @@ def test_tool_names():
 async def test_build_server_names_it():
     cache = EventCache(":memory:"); cache.init_schema()
     client = RateLimitedClient()
-    server = build_server(client, cache)
+    server = build_server(client, cache, _currents({"stations": []}))
     assert server.name == "currents-mcp"
     await client.aclose(); cache.close()
 
 
-@respx.mock
-async def test_dispatch_get_tidal_gate(tmp_path):
-    respx.get(url__regex=r".*/stations/.*/data").mock(return_value=httpx.Response(200, json=DAY))
-    cache = EventCache(str(tmp_path / "c.sqlite")); cache.init_schema()
+async def test_dispatch_get_tidal_gate():
+    cache = EventCache(":memory:"); cache.init_schema()
     client = RateLimitedClient()
-    result = await dispatch(client, cache, "get_tidal_gate", {"name": "Dodd Narrows", "date": "2026-05-24"})
+    currents = _currents(CURRENTS_PAYLOAD)
+    result = await dispatch(client, cache, currents, "get_tidal_gate",
+                            {"name": "Dodd Narrows", "date": "2026-05-24"})
     await client.aclose(); cache.close()
     assert result["name"] == "Dodd Narrows"
     assert result["slack_windows"][0]["utc"] == "2026-05-24T09:14:00Z"
 
 
 async def test_dispatch_get_passage_gates():
-    # Open-water destination routes through dispatch with no HTTP (empty gate list).
+    # Open-water destination routes through dispatch with no gates (empty gate list).
     cache = EventCache(":memory:"); cache.init_schema()
     client = RateLimitedClient()
-    result = await dispatch(client, cache, "get_passage_gates", {"destination": "Desolation Sound"})
+    currents = _currents({"stations": []})
+    result = await dispatch(client, cache, currents, "get_passage_gates",
+                            {"destination": "Desolation Sound"})
     await client.aclose(); cache.close()
     assert result["destination"] == "Desolation Sound"
     assert result["gates"] == []
@@ -49,7 +60,8 @@ async def test_dispatch_list_gates():
     # Guards against an accidental `await` being added to the sync list_gates branch.
     cache = EventCache(":memory:"); cache.init_schema()
     client = RateLimitedClient()
-    result = await dispatch(client, cache, "list_gates", {})
+    currents = _currents({"stations": []})
+    result = await dispatch(client, cache, currents, "list_gates", {})
     await client.aclose(); cache.close()
     assert "coverage" in result and "display" in result
 
@@ -57,9 +69,10 @@ async def test_dispatch_list_gates():
 async def test_dispatch_unknown_tool():
     cache = EventCache(":memory:"); cache.init_schema()
     client = RateLimitedClient()
+    currents = _currents({"stations": []})
     try:
         with pytest.raises(ValueError):
-            await dispatch(client, cache, "nope", {})
+            await dispatch(client, cache, currents, "nope", {})
     finally:
         await client.aclose(); cache.close()
 
@@ -97,8 +110,9 @@ async def test_dispatch_get_tide_heights(tmp_path):
     )
     cache = EventCache(str(tmp_path / "c.sqlite")); cache.init_schema()
     client = RateLimitedClient()
+    currents = _currents({"stations": []})
     result = await dispatch(
-        client, cache, "get_tide_heights",
+        client, cache, currents, "get_tide_heights",
         {"lat": 48.76, "lon": -123.05, "date": "2026-05-26"},
     )
     await client.aclose(); cache.close()

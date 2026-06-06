@@ -17,6 +17,7 @@ from mcp.server.stdio import stdio_server
 
 from currents_mcp.cache import EventCache
 from currents_mcp.client import RateLimitedClient
+from currents_mcp.currents_source import CurrentsClient
 from currents_mcp.tools import get_passage_gates, get_tidal_gate, get_tide_heights, list_gates
 
 logger = logging.getLogger(__name__)
@@ -24,18 +25,20 @@ logger = logging.getLogger(__name__)
 TOOL_NAMES = ["get_passage_gates", "get_tidal_gate", "list_gates", "get_tide_heights"]
 
 
-async def dispatch(client: RateLimitedClient, cache: EventCache, name: str, args: dict) -> dict:
+async def dispatch(
+    client: RateLimitedClient, cache: EventCache, currents: CurrentsClient, name: str, args: dict
+) -> dict:
     """Route a tool call to its implementation. Shared by the server and tests."""
     if name == "get_passage_gates":
         return await get_passage_gates(
-            client, cache,
+            currents,
             destination=args["destination"],
             depart_time=args.get("depart_time"),
             from_lat=args.get("from_lat"),
             from_lon=args.get("from_lon"),
         )
     if name == "get_tidal_gate":
-        return await get_tidal_gate(client, cache, name=args["name"], date=args.get("date"))
+        return await get_tidal_gate(currents, name=args["name"], date=args.get("date"))
     if name == "list_gates":
         return list_gates()
     if name == "get_tide_heights":
@@ -45,7 +48,7 @@ async def dispatch(client: RateLimitedClient, cache: EventCache, name: str, args
     raise ValueError(f"Unknown tool: {name}")
 
 
-def build_server(client: RateLimitedClient, cache: EventCache) -> Server:
+def build_server(client: RateLimitedClient, cache: EventCache, currents: CurrentsClient) -> Server:
     server = Server("currents-mcp")
 
     @server.list_tools()
@@ -99,7 +102,7 @@ def build_server(client: RateLimitedClient, cache: EventCache) -> Server:
 
     @server.call_tool()
     async def _call_tool(name: str, args: dict | None) -> list[types.TextContent]:
-        result = await dispatch(client, cache, name, args or {})
+        result = await dispatch(client, cache, currents, name, args or {})
         return [types.TextContent(type="text", text=json.dumps(result, indent=2))]
 
     return server
@@ -111,7 +114,8 @@ def main() -> None:
     cache = EventCache(cache_path)
     cache.init_schema()
     client = RateLimitedClient()
-    server = build_server(client, cache)
+    currents = CurrentsClient(os.environ.get("SIGNALK_URL", "http://localhost:3000"))
+    server = build_server(client, cache, currents)
 
     async def _run() -> None:
         try:
