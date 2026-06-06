@@ -3,6 +3,7 @@ resource, replacing the MCP's old direct CHS/NOAA fetching."""
 from __future__ import annotations
 
 import inspect
+import sys
 from typing import Awaitable, Callable
 
 import httpx
@@ -37,14 +38,22 @@ class CurrentsClient:
             return resp.json()
 
     async def _load(self) -> dict[str, list[CurrentEvent]]:
-        if self._cache is None:
+        if self._cache is not None:
+            return self._cache
+        try:
             result = self._getter(self._url)
             payload = await result if inspect.isawaitable(result) else result
-            self._cache = {
-                s["stationId"]: sorted((_event_from_plugin(e) for e in s.get("events", [])),
-                                       key=lambda e: e.utc)
-                for s in payload.get("stations", [])
-            }
+        except Exception as e:
+            # signalk-currents down/unreachable: degrade to no data (gate tools
+            # show empty windows) rather than crashing the tool. Not cached, so
+            # a later call retries. Logged to stderr (MCP runs over stdio).
+            print(f"currents-mcp: /currents fetch failed: {e}", file=sys.stderr)
+            return {}
+        self._cache = {
+            s["stationId"]: sorted((_event_from_plugin(e) for e in s.get("events", [])),
+                                   key=lambda e: e.utc)
+            for s in payload.get("stations", [])
+        }
         return self._cache
 
     async def events_for_station(self, station_id: str) -> list[CurrentEvent]:

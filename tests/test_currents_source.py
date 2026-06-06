@@ -28,3 +28,12 @@ async def test_events_for_station_parses_payload():
 async def test_unknown_station_returns_empty():
     c = CurrentsClient("http://signalk:3000", getter=lambda url: PAYLOAD)
     assert await c.events_for_station("missing") == []
+
+
+@pytest.mark.asyncio
+async def test_unreachable_degrades_to_empty():
+    """A down/unreachable signalk-currents yields [] (no crash), not an exception."""
+    def boom(url):
+        raise RuntimeError("plugin down")
+    c = CurrentsClient("http://signalk:3000", getter=boom)
+    assert await c.events_for_station("g") == []
