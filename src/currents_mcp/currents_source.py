@@ -3,14 +3,13 @@ resource, replacing the MCP's old direct CHS/NOAA fetching."""
 from __future__ import annotations
 
 import inspect
-import os
 from typing import Awaitable, Callable
 
 import httpx
 
 from currents_mcp.providers import CurrentEvent, _parse_dt
 
-CURRENTS_PATH = "/plugins/signalk-currents/currents"
+CURRENTS_PATH = "/signalk/v2/api/resources/currents"
 
 
 def _event_from_plugin(d: dict) -> CurrentEvent:
@@ -30,15 +29,10 @@ class CurrentsClient:
         self._cache: dict[str, list[CurrentEvent]] | None = None
 
     async def _http_get(self, url: str) -> dict:
-        # SignalK requires auth for plugin routes (even with allow_readonly), so
-        # /currents needs a token. A read-only SignalK token in SIGNALK_TOKEN is
-        # enough.
-        headers = {}
-        token = os.environ.get("SIGNALK_TOKEN", "")
-        if token:
-            headers["Authorization"] = f"Bearer {token}"
+        # /currents is a SignalK resource (/signalk/v2/api/resources/currents),
+        # anonymously readable under allow_readonly — no token needed.
         async with httpx.AsyncClient(timeout=10.0) as client:
-            resp = await client.get(url, headers=headers)
+            resp = await client.get(url)
             resp.raise_for_status()
             return resp.json()
 
