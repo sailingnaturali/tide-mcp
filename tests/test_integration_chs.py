@@ -19,10 +19,14 @@ pytestmark = pytest.mark.skipif(
 )
 
 
-async def test_dodd_narrows_returns_slack_today():
+async def test_boundary_pass_returns_slack_today():
+    # Boundary Pass: in the Pi's station config and the vessel's (mocked) home
+    # waters. Dodd Narrows is a known gate but not a configured station, so it
+    # returns no windows live.
     currents = CurrentsClient(os.environ.get("SIGNALK_URL", DEFAULT_SIGNALK_URL))
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    result = await get_tidal_gate(currents, "Dodd Narrows", date=today)
-    assert result["name"] == "Dodd Narrows"
+    result = await get_tidal_gate(currents, "Boundary Pass", date=today)
+    assert result["name"] == "Boundary Pass"
     assert len(result["slack_windows"]) >= 1
     assert "slack" in result["slack_windows"][0]["display"]
+    assert result["sets_display"] is not None  # plugin >= 0.3.0 deployed
