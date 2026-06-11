@@ -134,12 +134,17 @@ def _recommended_depart(
 
 
 def _parse_dt_arg(value: str | None) -> datetime:
-    """Parse an optional ISO date/datetime arg; default now (UTC). Date-only -> 00:00Z."""
+    """Parse an optional ISO date/datetime arg; default now (UTC).
+
+    A date-only arg means that calendar day where the vessel is (DISPLAY_TZ),
+    anchored at local midnight then converted to UTC — anchoring at 00:00Z
+    would start "today" at ~16:00 the previous local afternoon (R2)."""
     if not value:
         return datetime.now(timezone.utc)
     v = value.strip()
     if "T" not in v and " " not in v:
-        v = v + "T00:00:00+00:00"
+        d = datetime.fromisoformat(v)          # naive midnight, date-only input
+        return d.replace(tzinfo=DISPLAY_TZ).astimezone(timezone.utc)
     return _parse_dt(v)
 
 
@@ -174,12 +179,18 @@ async def get_tidal_gate(
         return {"unmatched": True, "suggestions_display": _gate_suggestions()}
     after = _parse_dt_arg(date)
     events = await currents.events_for_station(gate.station_id)
-    return {
+    out = {
         "name": gate.name,
         "slack_windows": _slack_windows(events, 3, after),
         "transit_window_minutes": gate.transit_window_minutes,
         **_gate_sets(await currents.dirs_for_station(gate.station_id)),
     }
+    if not events and currents.unreachable:
+        # Empty because the service is down, not because there's no data (R1).
+        out["service_display"] = (
+            "The currents service is unreachable — slack data unavailable right now."
+        )
+    return out
 
 
 def _destination_suggestions() -> str:
@@ -210,21 +221,36 @@ async def get_passage_gates(
         }
 
     gates_out: list[dict] = []
+    prev_point = origin
+    travel = timedelta(0)
     for idx, gname in enumerate(passage.gate_names):
         gate = GATES[gname]
+        # Filter each gate's windows by estimated arrival THERE, not by the
+        # departure time — a downstream gate's slack an hour after departure
+        # is unreachable and must not read as actionable.
+        travel += timedelta(hours=_haversine_nm(
+            prev_point[0], prev_point[1], gate.latitude, gate.longitude
+        ) / DEFAULT_SPEED_KNOTS)
+        prev_point = (gate.latitude, gate.longitude)
+        eta = depart + travel
         events = await currents.events_for_station(gate.station_id)
         entry = {
             "name": gate.name,
-            "slack_windows": _slack_windows(events, 3, depart),
+            "slack_windows": _slack_windows(events, 3, eta if idx else depart),
             "transit_window_minutes": gate.transit_window_minutes,
             **_gate_sets(await currents.dirs_for_station(gate.station_id)),
         }
         if idx == 0:
-            entry["recommended_depart_display"] = _recommended_depart(gate, events, depart, origin)
+            entry["recommended_depart_display"] = (
+                _recommended_depart(gate, events, depart, origin)
+                or f"No reachable slack at {gate.name} within the forecast window."
+            )
         else:
             entry["recommended_depart_display"] = None
             entry["note_display"] = (
-                "Slack windows shown for planning; the recommended departure covers the first gate only."
+                "Slack windows shown from your estimated arrival at this gate "
+                f"(~{travel.total_seconds() / 3600:.0f}h out at {DEFAULT_SPEED_KNOTS:.0f} kn); "
+                "the recommended departure covers the first gate only."
             )
         gates_out.append(entry)
 
@@ -234,6 +260,8 @@ async def get_passage_gates(
         or first.get("note_display")
         or "Check the first gate's slack windows."
     )
+    if currents.unreachable and not any(g["slack_windows"] for g in gates_out):
+        lead = "The currents service is unreachable — slack data unavailable right now."
     summary = f"{len(gates_out)} tidal gate(s). {lead}"
     return {"destination": passage.destination, "gates": gates_out, "summary_display": summary}
 
@@ -283,9 +311,7 @@ async def get_tide_heights(
             "summary_display": summary,
         }
 
-    next_low = next((e for e in out_events if e["type"] == "low"), None)
-    next_high = next((e for e in out_events if e["type"] == "high"), None)
-    nxt = next_low or next_high
+    nxt = out_events[0]                # the next extreme in time, whichever kind
     label = nxt["type"]
     when_height = nxt["display"].split(" ", 1)[1]  # drop the "Low "/"High " prefix
     summary = (

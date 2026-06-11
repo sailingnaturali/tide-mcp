@@ -57,8 +57,8 @@ async def test_get_tide_heights_shape(tmp_path):
     assert result["events"][1]["display"] == "Low 09:31 PDT — 1.2 m"
     assert result["events"][1]["height_m"] == 1.2
     assert result["events"][1]["utc"] == "2026-05-26T16:31:00Z"
-    # summary names the next low relative to the start of the query day
-    assert "low" in result["summary_display"].lower()
+    # summary names the NEXT extreme (the 02:48 PDT high), not a later low
+    assert "Next high" in result["summary_display"]
     assert "Montague Harbour" in result["summary_display"]
 
 

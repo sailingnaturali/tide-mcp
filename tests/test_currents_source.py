@@ -79,3 +79,54 @@ async def test_unreachable_degrades_to_empty():
         raise RuntimeError("plugin down")
     c = CurrentsClient("http://signalk:3000", getter=boom)
     assert await c.events_for_station("g") == []
+
+
+@pytest.mark.asyncio
+async def test_unreachable_is_distinguishable_from_no_data():
+    """The agent must be able to say 'service unreachable' vs 'no data here'."""
+    def boom(url):
+        raise RuntimeError("plugin down")
+    down = CurrentsClient("http://signalk:3000", getter=boom)
+    await down.events_for_station("g")
+    assert down.unreachable is True
+
+    up = CurrentsClient("http://signalk:3000", getter=lambda url: PAYLOAD)
+    await up.events_for_station("missing")
+    assert up.unreachable is False
+
+
+@pytest.mark.asyncio
+async def test_one_malformed_station_does_not_blank_the_rest(capsys):
+    """Per-record degradation (R3): a station missing stationId, and a station
+    with one malformed event, must not take down the good data."""
+    payload = {"stations": [
+        {"label": "no station id", "events": []},                       # bad station
+        {"stationId": "broken", "label": "Bad Events", "events": [
+            {"utc": "2026-06-06T04:14:00.000Z", "kind": "slack"},       # no speedKn
+            {"utc": "2026-06-06T05:40:00.000Z", "kind": "flood", "speedKn": 4.1},
+        ]},
+        PAYLOAD["stations"][0],                                          # good station
+    ]}
+    c = CurrentsClient("http://signalk:3000", getter=lambda url: payload)
+    good = await c.events_for_station("g")
+    assert [(e.kind, e.speed_knots) for e in good] == [("slack", 0.0), ("flood", 4.1)]
+    # the malformed event is skipped; the station's good event survives
+    broken = await c.events_for_station("broken")
+    assert [(e.kind, e.speed_knots) for e in broken] == [("flood", 4.1)]
+    assert "skipping" in capsys.readouterr().err
+
+
+@pytest.mark.asyncio
+async def test_concurrent_loads_fetch_once():
+    """Two simultaneous tool calls must not double-fetch /currents (R6)."""
+    import asyncio
+    calls = {"n": 0}
+
+    async def slow_get(url):
+        calls["n"] += 1
+        await asyncio.sleep(0.01)
+        return PAYLOAD
+
+    c = CurrentsClient("http://signalk:3000", getter=slow_get)
+    await asyncio.gather(c.events_for_station("g"), c.events_for_station("g"))
+    assert calls["n"] == 1

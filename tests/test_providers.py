@@ -121,3 +121,20 @@ async def test_fetch_chs_stations_returns_raw_list():
     assert route.called
     assert len(stations) == 2
     assert stations[0]["id"] == "AAA"
+
+
+def test_classify_height_kinds_alternating():
+    from currents_mcp.providers import _classify_height_kinds
+    assert _classify_height_kinds([3.0, 1.0, 2.9, 1.1]) == ["high", "low", "high", "low"]
+    assert _classify_height_kinds([1.0, 3.0]) == ["low", "high"]
+    assert _classify_height_kinds([3.0]) == ["high"]
+    assert _classify_height_kinds([]) == []
+
+
+def test_classify_height_kinds_dropped_event_does_not_cascade():
+    from currents_mcp.providers import _classify_height_kinds
+    # A low was dropped after 3.1; the mislabel must stay at the seam, not
+    # flip every label after it.
+    kinds = _classify_height_kinds([3.0, 1.0, 3.1, 3.2, 1.1, 3.3])
+    assert kinds[:2] == ["high", "low"]
+    assert kinds[3:] == ["high", "low", "high"]   # downstream labels correct

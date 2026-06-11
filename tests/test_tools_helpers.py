@@ -9,9 +9,21 @@ from currents_mcp.tools import (
     _direction_label,
     _fmt_slack,
     _haversine_nm,
+    _parse_dt_arg,
     _recommended_depart,
     _slack_windows,
 )
+
+
+def test_parse_dt_arg_date_only_anchors_to_local_midnight():
+    # "Today's tides" means the vessel-local day, not UTC: 2026-06-05 PDT
+    # starts at 07:00Z (fleet conventions R2). Winter (PST) starts at 08:00Z.
+    assert _parse_dt_arg("2026-06-05") == datetime(2026, 6, 5, 7, 0, tzinfo=timezone.utc)
+    assert _parse_dt_arg("2026-01-05") == datetime(2026, 1, 5, 8, 0, tzinfo=timezone.utc)
+
+
+def test_parse_dt_arg_full_datetime_passes_through():
+    assert _parse_dt_arg("2026-06-05T12:30:00Z") == datetime(2026, 6, 5, 12, 30, tzinfo=timezone.utc)
 
 
 def test_compass_words():

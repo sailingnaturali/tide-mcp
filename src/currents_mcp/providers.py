@@ -73,16 +73,21 @@ def _iso_z(dt: datetime) -> str:
 
 
 def _classify_height_kinds(values: list[float]) -> list[str]:
-    """Label a sequence of water-level values high/low by alternation.
+    """Label water-level values high/low by comparing each to its successor
+    (the last to its predecessor; single value -> high).
 
-    The first is high iff it exceeds the next (single value -> high). Assumes
-    values strictly alternate high/low, which holds for real semidiurnal tides.
+    Real semidiurnal tides alternate, but a dropped CHS event at a day seam
+    breaks alternation — pairwise comparison keeps any mislabel local to the
+    seam instead of cascading down the rest of the sequence.
     """
     if not values:
         return []
-    first_is_high = len(values) < 2 or values[0] > values[1]
-    types = ["high", "low"] if first_is_high else ["low", "high"]
-    return [types[i % 2] for i in range(len(values))]
+    if len(values) == 1:
+        return ["high"]
+    kinds = ["high" if v > values[i + 1] else "low"
+             for i, v in enumerate(values[:-1])]
+    kinds.append("high" if values[-1] > values[-2] else "low")
+    return kinds
 
 
 async def fetch_chs_height_events(

@@ -41,6 +41,24 @@ async def test_passage_multi_gate_first_gets_departure():
     )
 
 
+async def test_downstream_gate_windows_filtered_by_eta():
+    # Dent is ~23.5h from Victoria (via Gillard at 6 kn). A Dent slack 1h after
+    # departure is unreachable and must not be listed; the day-after slack is.
+    dent_events = [
+        {"utc": "2026-05-24T01:00:00Z", "kind": "slack", "speedKn": 0.0},  # unreachable
+        *_DAY,
+    ]
+    payload = {"stations": [
+        PAYLOAD["stations"][0],
+        {**PAYLOAD["stations"][1], "events": dent_events},
+    ]}
+    result = await get_passage_gates(_client(payload), "Cordero Channel",
+                                     depart_time="2026-05-24T00:00:00Z")
+    dent = result["gates"][1]
+    assert all("2026-05-24" not in w["utc"] for w in dent["slack_windows"])
+    assert any(w["utc"].startswith("2026-05-25") for w in dent["slack_windows"])
+
+
 async def test_passage_open_water_returns_empty_gates():
     currents = _client({"stations": []})
     result = await get_passage_gates(currents, "Desolation Sound")

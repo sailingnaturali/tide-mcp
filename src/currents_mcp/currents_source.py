@@ -2,6 +2,7 @@
 resource, replacing the MCP's old direct CHS/NOAA fetching."""
 from __future__ import annotations
 
+import asyncio
 import inspect
 import sys
 from typing import Awaitable, Callable
@@ -47,6 +48,10 @@ class CurrentsClient:
         self._getter = getter or self._http_get
         self._cache: dict[str, list[CurrentEvent]] | None = None
         self._dirs: dict[str, dict] = {}
+        self._lock = asyncio.Lock()
+        # Distinguishes "service unreachable" from "no data for this station"
+        # so the agent can say which one happened (R1).
+        self.unreachable = False
 
     async def _http_get(self, url: str) -> dict:
         # /currents is a SignalK resource (/signalk/v2/api/resources/currents),
@@ -59,26 +64,43 @@ class CurrentsClient:
     async def _load(self) -> dict[str, list[CurrentEvent]]:
         if self._cache is not None:
             return self._cache
-        try:
-            result = self._getter(self._url)
-            payload = await result if inspect.isawaitable(result) else result
-        except Exception as e:
-            # signalk-currents down/unreachable: degrade to no data (gate tools
-            # show empty windows) rather than crashing the tool. Not cached, so
-            # a later call retries. Logged to stderr (MCP runs over stdio).
-            print(f"currents-mcp: /currents fetch failed: {e}", file=sys.stderr)
-            return {}
-        self._cache = {
-            s["stationId"]: sorted(
-                (_event_from_plugin(e, s.get("floodDir"), s.get("ebbDir"))
-                 for e in s.get("events", [])),
-                key=lambda e: e.utc)
-            for s in payload.get("stations", [])
-        }
-        self._dirs = {
-            s["stationId"]: _dirs_from_station(s) for s in payload.get("stations", [])
-        }
-        return self._cache
+        async with self._lock:                  # two tool calls -> one fetch (R6)
+            if self._cache is not None:
+                return self._cache
+            try:
+                result = self._getter(self._url)
+                payload = await result if inspect.isawaitable(result) else result
+            except Exception as e:
+                # signalk-currents down/unreachable: degrade to no data (gate
+                # tools show empty windows) rather than crashing the tool. Not
+                # cached, so a later call retries. Logged to stderr (stdio MCP).
+                print(f"currents-mcp: /currents fetch failed: {e}", file=sys.stderr)
+                self.unreachable = True
+                return {}
+            self.unreachable = False
+            # Per-record degradation (R3): one malformed station or event must
+            # not blank the dataset — skip it, warn, keep serving the rest.
+            cache: dict[str, list[CurrentEvent]] = {}
+            dirs: dict[str, dict] = {}
+            for s in payload.get("stations", []):
+                sid = s.get("stationId")
+                if not sid:
+                    print(f"currents-mcp: skipping station without stationId: "
+                          f"{s.get('label')!r}", file=sys.stderr)
+                    continue
+                events: list[CurrentEvent] = []
+                for e in s.get("events", []):
+                    try:
+                        events.append(_event_from_plugin(
+                            e, s.get("floodDir"), s.get("ebbDir")))
+                    except (KeyError, TypeError, ValueError) as exc:
+                        print(f"currents-mcp: skipping malformed event for {sid}: "
+                              f"{exc!r}", file=sys.stderr)
+                events.sort(key=lambda e: e.utc)
+                cache[sid] = events
+                dirs[sid] = _dirs_from_station(s)
+            self._cache, self._dirs = cache, dirs
+            return self._cache
 
     async def events_for_station(self, station_id: str) -> list[CurrentEvent]:
         return (await self._load()).get(station_id, [])
