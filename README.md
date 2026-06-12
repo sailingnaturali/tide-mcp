@@ -1,6 +1,6 @@
 # currents-mcp
 
-MCP server exposing Pacific Northwest tidal-gate slack windows to agents. Tidal-current predictions are read from the [`signalk-currents`](https://github.com/sailingnaturali) plugin's `/currents` resource (the plugin owns CHS/NOAA fetching and caching); this server maps named gates and destination passages onto those predictions and reports next slack windows, transit windows, and recommended departure times.
+MCP server exposing Pacific Northwest tidal-gate slack windows to agents. Tidal-current predictions are read from the [`signalk-currents`](https://github.com/sailingnaturali) plugin's `/currents` resource (the plugin owns CHS/NOAA fetching and caching); this server maps named gates and destination passages onto those predictions and reports next slack windows, transit windows, and recommended departure times. Tide heights come from the same SignalK server's [`signalk-tides`](https://github.com/openwatersio/signalk-tides) plugin (offline Neaps predictions) — this server makes no direct internet fetches.
 
 
 ## Tools
@@ -60,9 +60,9 @@ Returns all covered destinations and the gates they route through: `{"coverage":
 
 ### `get_tide_heights(lat, lon, date?)`
 
-Returns high/low tide height events from the nearest CHS water-level station. Use for anchor planning ("when is low tide here?") and any question about tidal range.
-
-> **Vestigial pending Phase 2.** Heights are still fetched from CHS directly inside this server (the only remaining direct-fetch path). Phase 2 moves heights into `signalk-tides`/`signalk-currents` and removes this tool from `currents-mcp`.
+Returns high/low tide height events from the nearest tide station to the
+position. Use for anchor planning ("when is low tide here?") and any question
+about tidal range.
 
 - `lat`, `lon`: vessel or target position in decimal degrees
 - `date`: optional ISO date string (defaults to today)
@@ -71,18 +71,28 @@ Example response:
 
 ```json
 {
-  "station_name": "Tsawwassen",
-  "distance_km": 18.3,
+  "station_name": "Montague Harbour BC",
+  "distance_km": 1,
   "events": [
     {"display": "Low 06:14 PDT — 0.9 m", "type": "low", "height_m": 0.9, "utc": "2026-05-26T13:14:00Z"},
     {"display": "High 12:38 PDT — 3.8 m", "type": "high", "height_m": 3.8, "utc": "2026-05-26T19:38:00Z"},
     {"display": "Low 18:47 PDT — 1.0 m", "type": "low", "height_m": 1.0, "utc": "2026-05-27T01:47:00Z"}
   ],
-  "summary_display": "Nearest tide station: Tsawwassen, 18.3 km from you. Next low is 06:14 PDT — 0.9 m."
+  "summary_display": "Nearest tide station: Montague Harbour BC, 1 km from you. Next low is 06:14 PDT — 0.9 m."
 }
 ```
 
-Data source: CHS IWLS water-level (`wlp-hilo`) stations. Station list cached 24 h; per-day predictions cached indefinitely (immutable). Two UTC days are queried so the local-day tail isn't dropped when called late in a PDT day; the next ~4 events at/after the query time are returned.
+Data source: the `signalk-tides` plugin (≥ 2.0.0-beta.1, plugin id `tides`)
+serving offline Neaps harmonic predictions at
+`/signalk/v2/api/tides/extremes` on `SIGNALK_URL`. A 36-hour window is
+queried so the local-day tail isn't dropped when called late in a PDT day;
+the next ~4 events at/after the query time are returned.
+
+> **Datum caveat.** Heights are relative to LAT from published harmonic
+> constituents (TICON-4 and friends), not official CHS predictions. Timing
+> agrees within minutes, but heights can differ by up to ~0.5 m at some
+> stations — verified Sidney BC +0.4 m vs CHS, Point Atkinson within 0.1 m.
+> Pad under-keel margins accordingly.
 
 ## Coverage
 
@@ -103,7 +113,7 @@ The gate-to-station mapping lives in `passages.py`; the `signalk-currents` plugi
 ## Data sources
 
 - `signalk-currents` plugin `/currents` resource (CHS `wcp1-events` BC + NOAA CO-OPS US, fetched/cached by the plugin) — tidal gate slack windows
-- CHS IWLS water-level stations (`wlp-hilo`, BC) — tide heights (fetched directly here, pending Phase 2)
+- `signalk-tides` plugin `/signalk/v2/api/tides/extremes` (offline Neaps engine, no internet) — tide heights
 
 Current speeds in knots. Heights in metres. Times rendered in America/Vancouver (PDT/PST).
 
@@ -111,8 +121,7 @@ Current speeds in knots. Heights in metres. Times rendered in America/Vancouver 
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `SIGNALK_URL` | `http://naturalaspi.local:3000` | Base URL of the SignalK server running `signalk-currents`; the gate tools GET `/signalk/v2/api/resources/currents` from here |
-| `CURRENTS_CACHE_PATH` | `~/.currents-mcp/cache.sqlite` | Path to the SQLite response cache (tide-height predictions) |
+| `SIGNALK_URL` | `http://naturalaspi.local:3000` | Base URL of the SignalK server running `signalk-currents` and `signalk-tides`; the gate tools GET `/signalk/v2/api/resources/currents` and the height tool GETs `/signalk/v2/api/tides/extremes` from here |
 
 ## Run
 
@@ -120,4 +129,4 @@ Current speeds in knots. Heights in metres. Times rendered in America/Vancouver 
 
 ## Test
 
-    uv run pytest -v --ignore=tests/test_integration_chs.py
+    uv run pytest -v
