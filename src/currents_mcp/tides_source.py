@@ -1,5 +1,5 @@
 """Reads tide-height extremes from the signalk-tides plugin's offline Neaps
-API, replacing the MCP's old direct CHS height fetching (Phase 2)."""
+API, replacing the MCP's old direct CHS height fetching."""
 from __future__ import annotations
 
 import inspect
