@@ -288,6 +288,7 @@ async def get_tide_heights(
     after = _parse_dt_arg(date)
     # 36 h window so we don't drop the local-day tail when `after` is late in
     # a UTC day (e.g. evening PDT pushes that night's events into tomorrow UTC).
+    # Deliberately wall-clock-naive: over-provisioned to swallow DST days too.
     info, events = await tides.extremes(lat, lon, after, after + timedelta(hours=36))
 
     if info is None:
