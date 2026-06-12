@@ -1,18 +1,14 @@
-"""Event dataclasses + CHS tide-height parsers.
+"""Event dataclasses + shared time parsing.
 
-Tidal-current predictions now come from the signalk-currents plugin (see
-currents_source.CurrentsClient); CurrentEvent remains here as the shared shape.
-CHS wlp-hilo high/low water is still fetched directly, pending Phase 2.
+Tidal-current predictions come from the signalk-currents plugin (see
+currents_source.CurrentsClient); tide-height extremes come from the
+signalk-tides plugin's Neaps engine (see tides_source.TidesClient).
 """
 
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
-
-from currents_mcp.client import RateLimitedClient
-
-CHS_BASE = "https://api-sine.dfo-mpo.gc.ca/api/v1"
 
 
 @dataclass(frozen=True)
@@ -43,20 +39,7 @@ class CurrentEvent:
 class TideHeightEvent:
     utc: datetime          # tz-aware UTC
     kind: str              # "high" | "low"
-    height_m: float        # metres above chart datum
-
-    def to_dict(self) -> dict:
-        d = asdict(self)
-        d["utc"] = self.utc.isoformat()
-        return d
-
-    @classmethod
-    def from_dict(cls, d: dict) -> "TideHeightEvent":
-        return cls(
-            utc=_parse_dt(d["utc"]),
-            kind=d["kind"],
-            height_m=d["height_m"],
-        )
+    height_m: float        # metres above datum (LAT, from Neaps)
 
 
 def _parse_dt(s: str) -> datetime:
@@ -70,52 +53,3 @@ def _parse_dt(s: str) -> datetime:
 def _iso_z(dt: datetime) -> str:
     """Format a UTC datetime as the API's expected ...Z string."""
     return dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-
-
-def _classify_height_kinds(values: list[float]) -> list[str]:
-    """Label water-level values high/low by comparing each to its successor
-    (the last to its predecessor; single value -> high).
-
-    Real semidiurnal tides alternate, but a dropped CHS event at a day seam
-    breaks alternation — pairwise comparison keeps any mislabel local to the
-    seam instead of cascading down the rest of the sequence.
-    """
-    if not values:
-        return []
-    if len(values) == 1:
-        return ["high"]
-    kinds = ["high" if v > values[i + 1] else "low"
-             for i, v in enumerate(values[:-1])]
-    kinds.append("high" if values[-1] > values[-2] else "low")
-    return kinds
-
-
-async def fetch_chs_height_events(
-    client: RateLimitedClient, station_id: str, start: datetime, end: datetime
-) -> list[TideHeightEvent]:
-    """Fetch CHS wlp-hilo (high/low water) for a station over [start, end), classified."""
-    url = f"{CHS_BASE}/stations/{station_id}/data"
-    params = {
-        "time-series-code": "wlp-hilo",
-        "from": _iso_z(start),
-        "to": _iso_z(end),
-    }
-    resp = await client.get(url, params=params)
-    resp.raise_for_status()
-    rows = resp.json()
-    kinds = _classify_height_kinds([float(r["value"]) for r in rows])
-    return [
-        TideHeightEvent(
-            utc=_parse_dt(rows[i]["eventDate"]),
-            kind=kinds[i],
-            height_m=float(rows[i]["value"]),
-        )
-        for i in range(len(rows))
-    ]
-
-
-async def fetch_chs_stations(client: RateLimitedClient) -> list[dict]:
-    """Fetch the full CHS station list (id, name, coords, operating, timeSeries)."""
-    resp = await client.get(f"{CHS_BASE}/stations")
-    resp.raise_for_status()
-    return resp.json()
