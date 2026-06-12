@@ -2,7 +2,6 @@
 
 MCP server exposing Pacific Northwest tidal-gate slack windows to agents. Tidal-current predictions are read from the [`signalk-currents`](https://github.com/sailingnaturali) plugin's `/currents` resource (the plugin owns CHS/NOAA fetching and caching); this server maps named gates and destination passages onto those predictions and reports next slack windows, transit windows, and recommended departure times.
 
-Design notes live in the private `sailingnaturali` repo at `docs/superpowers/specs/2026-05-24-tide-mcp-design.md`; the rename/refactor plan is `docs/superpowers/plans/2026-06-05-currents-mcp.md`.
 
 ## Tools
 
