@@ -10,12 +10,10 @@ import math
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
-from currents_mcp.cache import EventCache
-from currents_mcp.client import RateLimitedClient
 from currents_mcp.currents_source import CurrentsClient
-from currents_mcp.fetch import tide_height_events
 from currents_mcp.passages import GATES, Gate, PASSAGES, coverage, find_gate, match_destination
 from currents_mcp.providers import CurrentEvent, _iso_z, _parse_dt
+from currents_mcp.tides_source import TidesClient
 
 VICTORIA = (48.42, -123.37)
 DEFAULT_SPEED_KNOTS = 6.0
@@ -276,18 +274,30 @@ def list_gates() -> dict:
 
 
 async def get_tide_heights(
-    client: RateLimitedClient,
-    cache: EventCache,
+    tides: TidesClient,
     lat: float,
     lon: float,
     date: str | None = None,
 ) -> dict:
-    """Return high/low tide heights for the nearest CHS water-level station,
-    starting at `date` (or now) and covering ~one local-day tide cycle."""
+    """Return high/low tide heights for the nearest tide station, starting at
+    `date` (or now) and covering ~one local-day tide cycle.
+
+    Heights come from the boat server's offline Neaps engine (signalk-tides),
+    relative to LAT — they can differ from official CHS predictions by up to
+    ~0.5 m at some stations; timing agrees within minutes."""
     after = _parse_dt_arg(date)
-    # n_days=2 so we don't drop the local-day tail when `after` is late in a
-    # UTC day (e.g. evening PDT pushes that night's events into tomorrow UTC).
-    info, events = await tide_height_events(client, cache, lat, lon, after, n_days=2)
+    # 36 h window so we don't drop the local-day tail when `after` is late in
+    # a UTC day (e.g. evening PDT pushes that night's events into tomorrow UTC).
+    info, events = await tides.extremes(lat, lon, after, after + timedelta(hours=36))
+
+    if info is None:
+        return {
+            "station_name": None,
+            "distance_km": None,
+            "events": [],
+            "summary_display": ("Tide heights unavailable — the boat server is "
+                                "unreachable; verify tide timing manually."),
+        }
 
     out_events = [
         {

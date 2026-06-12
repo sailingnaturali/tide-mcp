@@ -1,7 +1,4 @@
-"""currents-mcp server. Exposes tidal-gate tools to any MCP client over stdio.
-
-Cache path comes from CURRENTS_CACHE_PATH (default ~/.currents-mcp/cache.sqlite).
-"""
+"""currents-mcp server. Exposes tidal-gate tools to any MCP client over stdio."""
 
 from __future__ import annotations
 
@@ -9,15 +6,13 @@ import asyncio
 import json
 import logging
 import os
-from pathlib import Path
 
 import mcp.types as types
 from mcp.server import Server
 from mcp.server.stdio import stdio_server
 
-from currents_mcp.cache import EventCache
-from currents_mcp.client import RateLimitedClient
 from currents_mcp.currents_source import CurrentsClient
+from currents_mcp.tides_source import TidesClient
 from currents_mcp.tools import get_passage_gates, get_tidal_gate, get_tide_heights, list_gates
 
 logger = logging.getLogger(__name__)
@@ -30,7 +25,7 @@ DEFAULT_SIGNALK_URL = "http://naturalaspi.local:3000"
 
 
 async def dispatch(
-    client: RateLimitedClient, cache: EventCache, currents: CurrentsClient, name: str, args: dict
+    currents: CurrentsClient, tides: TidesClient, name: str, args: dict
 ) -> dict:
     """Route a tool call to its implementation. Shared by the server and tests."""
     if name == "get_passage_gates":
@@ -47,12 +42,12 @@ async def dispatch(
         return list_gates()
     if name == "get_tide_heights":
         return await get_tide_heights(
-            client, cache, lat=args["lat"], lon=args["lon"], date=args.get("date")
+            tides, lat=args["lat"], lon=args["lon"], date=args.get("date")
         )
     raise ValueError(f"Unknown tool: {name}")
 
 
-def build_server(client: RateLimitedClient, cache: EventCache, currents: CurrentsClient) -> Server:
+def build_server(currents: CurrentsClient, tides: TidesClient) -> Server:
     server = Server("currents-mcp")
 
     @server.list_tools()
@@ -91,7 +86,12 @@ def build_server(client: RateLimitedClient, cache: EventCache, currents: Current
             ),
             types.Tool(
                 name="get_tide_heights",
-                description="High/low tide heights for the nearest water-level station to a position.",
+                description=(
+                    "High/low tide heights for the nearest tide station to a position. "
+                    "Offline predictions from the boat server (signalk-tides/Neaps), "
+                    "relative to LAT — heights can differ from official CHS predictions "
+                    "by up to ~0.5 m at some stations."
+                ),
                 inputSchema={
                     "type": "object",
                     "properties": {
@@ -106,28 +106,21 @@ def build_server(client: RateLimitedClient, cache: EventCache, currents: Current
 
     @server.call_tool()
     async def _call_tool(name: str, args: dict | None) -> list[types.TextContent]:
-        result = await dispatch(client, cache, currents, name, args or {})
+        result = await dispatch(currents, tides, name, args or {})
         return [types.TextContent(type="text", text=json.dumps(result, indent=2))]
 
     return server
 
 
 def main() -> None:
-    cache_path = os.environ.get("CURRENTS_CACHE_PATH", str(Path.home() / ".currents-mcp" / "cache.sqlite"))
-    Path(cache_path).parent.mkdir(parents=True, exist_ok=True)
-    cache = EventCache(cache_path)
-    cache.init_schema()
-    client = RateLimitedClient()
-    currents = CurrentsClient(os.environ.get("SIGNALK_URL", DEFAULT_SIGNALK_URL))
-    server = build_server(client, cache, currents)
+    signalk_url = os.environ.get("SIGNALK_URL", DEFAULT_SIGNALK_URL)
+    currents = CurrentsClient(signalk_url)
+    tides = TidesClient(signalk_url)
+    server = build_server(currents, tides)
 
     async def _run() -> None:
-        try:
-            async with stdio_server() as (read_stream, write_stream):
-                await server.run(read_stream, write_stream, server.create_initialization_options())
-        finally:
-            await client.aclose()
-            cache.close()
+        async with stdio_server() as (read_stream, write_stream):
+            await server.run(read_stream, write_stream, server.create_initialization_options())
 
     asyncio.run(_run())
 
