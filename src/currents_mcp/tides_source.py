@@ -73,6 +73,7 @@ class TidesClient:
         station = payload.get("station") or {}
         info = {
             "station_name": station.get("name", "unknown"),
+            # Neaps reports distance in km (e.g. 0.4 for a ~400 m offset).
             "distance_km": round(payload.get("distance") or 0),
         }
         return info, events

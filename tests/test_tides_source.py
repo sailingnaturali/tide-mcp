@@ -65,7 +65,7 @@ async def test_unreachable_server_degrades_and_flags():
 
 
 @pytest.mark.asyncio
-async def test_malformed_extreme_is_skipped_not_fatal():
+async def test_malformed_extreme_is_skipped_not_fatal(capsys):
     payload = {
         "station": {"name": "X"}, "distance": 0,
         "extremes": [
@@ -77,6 +77,7 @@ async def test_malformed_extreme_is_skipped_not_fatal():
     c = TidesClient("http://signalk:3000", getter=lambda url, params: payload)
     _, events = await c.extremes(48.76, -123.05, START, END)
     assert [(e.kind, e.height_m) for e in events] == [("low", 1.24)]
+    assert "skipping" in capsys.readouterr().err
 
 
 @respx.mock
