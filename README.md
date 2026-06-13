@@ -88,10 +88,14 @@ serving offline Neaps harmonic predictions at
 queried so the local-day tail isn't dropped when called late in a PDT day;
 the next ~4 events at/after the query time are returned.
 
-> **Datum caveat.** Heights are relative to LAT from published harmonic
-> constituents (TICON-4 and friends), not official CHS predictions. Timing
-> agrees within minutes, but heights can differ by up to ~0.5 m at some
-> stations — verified Sidney BC +0.4 m vs CHS, Point Atkinson within 0.1 m.
+> **Datum caveat.** Heights are relative to **LAT**; official CHS predictions
+> (and Canadian charted depths) are relative to **chart datum**, which sits
+> *above* LAT by a fixed, per-station amount — 0.43 m at Sidney BC, 0.08 m at
+> Point Atkinson, 0.09 m at Halifax (CHS station metadata, `LAT` offset). So
+> these heights read systematically higher than tide tables by exactly that
+> offset — an optimistic bias for charted-depth math. After datum correction
+> the residual prediction difference is ~1 dm (timing within minutes; see
+> [openwatersio/neaps#223](https://github.com/openwatersio/neaps/issues/223)).
 > Pad under-keel margins accordingly.
 
 ## Coverage

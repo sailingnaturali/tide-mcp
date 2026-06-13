@@ -89,8 +89,9 @@ def build_server(currents: CurrentsClient, tides: TidesClient) -> Server:
                 description=(
                     "High/low tide heights for the nearest tide station to a position. "
                     "Offline predictions from the boat server (signalk-tides/Neaps), "
-                    "relative to LAT — heights can differ from official CHS predictions "
-                    "by up to ~0.5 m at some stations."
+                    "relative to LAT — chart datum sits above LAT by up to ~0.4 m at "
+                    "some stations, so these read higher than official tide tables by "
+                    "that fixed offset."
                 ),
                 inputSchema={
                     "type": "object",

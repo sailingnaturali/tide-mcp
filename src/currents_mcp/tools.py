@@ -283,8 +283,10 @@ async def get_tide_heights(
     `date` (or now) and covering ~one local-day tide cycle.
 
     Heights come from the boat server's offline Neaps engine (signalk-tides),
-    relative to LAT — they can differ from official CHS predictions by up to
-    ~0.5 m at some stations; timing agrees within minutes."""
+    relative to LAT. CHS chart datum sits above LAT by a fixed per-station
+    amount (up to ~0.4 m), so these read systematically higher than official
+    tide tables; residual prediction differences are ~1 dm, timing within
+    minutes. See the README datum caveat."""
     after = _parse_dt_arg(date)
     # 36 h window so we don't drop the local-day tail when `after` is late in
     # a UTC day (e.g. evening PDT pushes that night's events into tomorrow UTC).
