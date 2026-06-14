@@ -1,5 +1,5 @@
 from currents_mcp.currents_source import CurrentsClient
-from currents_mcp.tools import get_tidal_gate
+from currents_mcp.tools import get_gate_current
 
 # /currents payload keyed by station_id (the plugin's contract). Dodd Narrows is
 # 63aef1866a2b9417c035030f; the slack at 09:14Z is preceded by an ebb and followed
@@ -19,9 +19,9 @@ def _client(payload):
     return CurrentsClient("http://signalk:3000", getter=lambda url: payload)
 
 
-async def test_get_tidal_gate_returns_slack_windows():
+async def test_get_gate_current_returns_slack_windows():
     currents = _client(PAYLOAD)
-    result = await get_tidal_gate(currents, "Dodd Narrows", date="2026-05-24")
+    result = await get_gate_current(currents, "Dodd Narrows", date="2026-05-24")
 
     assert result["name"] == "Dodd Narrows"
     assert result["transit_window_minutes"] == 30
@@ -29,10 +29,10 @@ async def test_get_tidal_gate_returns_slack_windows():
     assert "ebb→flood" in result["slack_windows"][0]["display"]
 
 
-async def test_get_tidal_gate_names_flood_and_ebb_sets():
+async def test_get_gate_current_names_flood_and_ebb_sets():
     """The gate answer says which way flood and ebb flow, in words and °true."""
     currents = _client(PAYLOAD)
-    result = await get_tidal_gate(currents, "Dodd Narrows", date="2026-05-24")
+    result = await get_gate_current(currents, "Dodd Narrows", date="2026-05-24")
     assert result["sets_display"] == (
         "Flood sets north-northwest; ebb sets south-southeast."
     )
@@ -40,11 +40,11 @@ async def test_get_tidal_gate_names_flood_and_ebb_sets():
     assert result["ebb_dir_true"] == 160
 
 
-async def test_get_tidal_gate_says_unknown_when_no_dirs():
+async def test_get_gate_current_says_unknown_when_no_dirs():
     """No directions anywhere (old plugin / unconfigured): say so explicitly —
     an agent should state the gap, not silently skip it."""
     currents = _client(BOUNDARY_PAYLOAD)
-    result = await get_tidal_gate(currents, "Boundary Pass", date="2026-05-24")
+    result = await get_gate_current(currents, "Boundary Pass", date="2026-05-24")
     assert result["sets_display"] == (
         "Flood and ebb set directions are not available for this station."
     )
@@ -57,27 +57,27 @@ def _dodd_with(**extra):
     return {"stations": [station]}
 
 
-async def test_get_tidal_gate_flags_estimated_ebb():
+async def test_get_gate_current_flags_estimated_ebb():
     """An assumed (e.g. reciprocal) ebb is said out loud — the Dent Rapids case."""
     currents = _client(_dodd_with(ebbDirEstimated=True))
-    result = await get_tidal_gate(currents, "Dodd Narrows", date="2026-05-24")
+    result = await get_gate_current(currents, "Dodd Narrows", date="2026-05-24")
     assert result["sets_display"] == (
         "Flood sets north-northwest; ebb sets south-southeast (estimated)."
     )
 
 
-async def test_get_tidal_gate_trusted_dirs_stay_unqualified():
+async def test_get_gate_current_trusted_dirs_stay_unqualified():
     """API- or table-sourced dirs read clean — no qualifier noise."""
     currents = _client(_dodd_with(dirsSource="api"))
-    result = await get_tidal_gate(currents, "Dodd Narrows", date="2026-05-24")
+    result = await get_gate_current(currents, "Dodd Narrows", date="2026-05-24")
     assert result["sets_display"] == (
         "Flood sets north-northwest; ebb sets south-southeast."
     )
 
 
-async def test_get_tidal_gate_unknown_name_suggests():
+async def test_get_gate_current_unknown_name_suggests():
     currents = _client(PAYLOAD)
-    result = await get_tidal_gate(currents, "Nowhere Narrows")
+    result = await get_gate_current(currents, "Nowhere Narrows")
     assert result.get("unmatched") is True
     assert "Dodd Narrows" in result["suggestions_display"]
 
@@ -94,8 +94,8 @@ BOUNDARY_PAYLOAD = {"stations": [
 ]}
 
 
-async def test_get_tidal_gate_boundary_pass():
+async def test_get_gate_current_boundary_pass():
     currents = _client(BOUNDARY_PAYLOAD)
-    result = await get_tidal_gate(currents, "Boundary Pass", date="2026-05-24")
+    result = await get_gate_current(currents, "Boundary Pass", date="2026-05-24")
     assert result["name"] == "Boundary Pass"
     assert result["slack_windows"][0]["utc"] == "2026-05-24T09:00:00Z"
