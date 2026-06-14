@@ -13,11 +13,11 @@ from mcp.server.stdio import stdio_server
 
 from currents_mcp.currents_source import CurrentsClient
 from currents_mcp.tides_source import TidesClient
-from currents_mcp.tools import get_passage_gates, get_tidal_gate, get_tide_heights, list_gates
+from currents_mcp.tools import get_gate_current, get_tide_heights, list_gates, plan_passage
 
 logger = logging.getLogger(__name__)
 
-TOOL_NAMES = ["get_passage_gates", "get_tidal_gate", "list_gates", "get_tide_heights"]
+TOOL_NAMES = ["plan_passage", "get_gate_current", "list_gates", "get_tide_heights"]
 
 # The boat's SignalK server (Pi 5). Not localhost: the mac-dev rig is retired,
 # and an unreachable /currents degrades silently to empty slack windows.
@@ -28,16 +28,16 @@ async def dispatch(
     currents: CurrentsClient, tides: TidesClient, name: str, args: dict
 ) -> dict:
     """Route a tool call to its implementation. Shared by the server and tests."""
-    if name == "get_passage_gates":
-        return await get_passage_gates(
+    if name == "plan_passage":
+        return await plan_passage(
             currents,
             destination=args["destination"],
             depart_time=args.get("depart_time"),
             from_lat=args.get("from_lat"),
             from_lon=args.get("from_lon"),
         )
-    if name == "get_tidal_gate":
-        return await get_tidal_gate(currents, name=args["name"], date=args.get("date"))
+    if name == "get_gate_current":
+        return await get_gate_current(currents, name=args["name"], date=args.get("date"))
     if name == "list_gates":
         return list_gates()
     if name == "get_tide_heights":
@@ -54,14 +54,14 @@ def build_server(currents: CurrentsClient, tides: TidesClient) -> Server:
     async def _list_tools() -> list[types.Tool]:
         return [
             types.Tool(
-                name="get_passage_gates",
+                name="plan_passage",
                 description=(
                     "Use this when planning a ROUTE to a destination — it returns every "
                     "tidal gate along that route with slack windows and a recommended "
                     "departure time. Input is a destination name (e.g. 'Desolation Sound', "
                     "'Nanaimo'), not a gate name. "
                     "Do NOT use this for the current at a single named gate or pass — "
-                    "use get_tidal_gate instead. "
+                    "use get_gate_current instead. "
                     "Do NOT use this to find out which gates exist — use list_gates instead."
                 ),
                 inputSchema={
@@ -76,14 +76,14 @@ def build_server(currents: CurrentsClient, tides: TidesClient) -> Server:
                 },
             ),
             types.Tool(
-                name="get_tidal_gate",
+                name="get_gate_current",
                 description=(
                     "Use this for the current (speed, direction, slack windows) at a "
                     "SINGLE named tidal gate or pass, e.g. 'current at Boundary Pass', "
                     "'what is Dodd Narrows doing', 'when is Seymour Narrows slack'. "
                     "Input is the gate name. Returns the next 3 slack windows and flood/ebb "
                     "set directions for that gate. "
-                    "Do NOT use this for route planning to a destination — use get_passage_gates instead. "
+                    "Do NOT use this for route planning to a destination — use plan_passage instead. "
                     "Do NOT use this to enumerate available gates — use list_gates instead."
                 ),
                 inputSchema={
@@ -102,8 +102,8 @@ def build_server(currents: CurrentsClient, tides: TidesClient) -> Server:
                     "— returns a catalog of known destinations and the gates that cover them. "
                     "No live current data; use this when the user asks what gates or "
                     "destinations are supported. "
-                    "Do NOT use this for the current at a specific gate — use get_tidal_gate instead. "
-                    "Do NOT use this for route planning — use get_passage_gates instead."
+                    "Do NOT use this for the current at a specific gate — use get_gate_current instead. "
+                    "Do NOT use this for route planning — use plan_passage instead."
                 ),
                 inputSchema={"type": "object", "properties": {}},
             ),

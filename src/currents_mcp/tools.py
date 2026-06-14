@@ -168,7 +168,7 @@ def _gate_suggestions() -> str:
     return "Known gates: " + ", ".join(GATES.keys()) + "."
 
 
-async def get_tidal_gate(
+async def get_gate_current(
     currents: CurrentsClient, name: str, date: str | None = None
 ) -> dict:
     """Return the next 3 slack windows for a single named gate."""
@@ -195,7 +195,7 @@ def _destination_suggestions() -> str:
     return "Known destinations: " + ", ".join(p.destination for p in PASSAGES) + "."
 
 
-async def get_passage_gates(
+async def plan_passage(
     currents: CurrentsClient,
     destination: str,
     depart_time: str | None = None,

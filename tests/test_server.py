@@ -36,14 +36,14 @@ def _tides(payload):
 
 
 def test_tool_names():
-    assert TOOL_NAMES == ["get_passage_gates", "get_tidal_gate", "list_gates", "get_tide_heights"]
+    assert TOOL_NAMES == ["plan_passage", "get_gate_current", "list_gates", "get_tide_heights"]
 
 
 async def test_tool_descriptions_disambiguate():
     """Each gate tool description must name its siblings so weak models pick the right one.
 
     Regression guard for the benchmark failure where 8–10B models called list_gates or
-    get_passage_gates when asked 'What's the current doing at Boundary Pass?' because the
+    plan_passage when asked 'What's the current doing at Boundary Pass?' because the
     three similarly-named tools had descriptions that didn't distinguish their use cases.
     """
     server = build_server(_currents({"stations": []}), _tides(TIDES_PAYLOAD))
@@ -51,34 +51,34 @@ async def test_tool_descriptions_disambiguate():
     result = await handler(mcp_types.ListToolsRequest(method="tools/list", params=None))
     descs = {t.name: t.description for t in result.root.tools}
 
-    # get_tidal_gate: must be clearly for single-gate current queries and name siblings.
-    gtg = descs["get_tidal_gate"]
-    assert "single" in gtg.lower() or "one" in gtg.lower(), (
-        "get_tidal_gate description must say it handles a single gate"
+    # get_gate_current: must be clearly for single-gate current queries and name siblings.
+    ggc = descs["get_gate_current"]
+    assert "single" in ggc.lower() or "one" in ggc.lower(), (
+        "get_gate_current description must say it handles a single gate"
     )
-    assert "get_passage_gates" in gtg, (
-        "get_tidal_gate description must cross-reference get_passage_gates"
+    assert "plan_passage" in ggc, (
+        "get_gate_current description must cross-reference plan_passage"
     )
-    assert "list_gates" in gtg, (
-        "get_tidal_gate description must cross-reference list_gates"
+    assert "list_gates" in ggc, (
+        "get_gate_current description must cross-reference list_gates"
     )
 
-    # get_passage_gates: must be clearly for route/destination planning and name siblings.
-    gpg = descs["get_passage_gates"]
-    assert "get_tidal_gate" in gpg, (
-        "get_passage_gates description must cross-reference get_tidal_gate"
+    # plan_passage: must be clearly for route/destination planning and name siblings.
+    pp = descs["plan_passage"]
+    assert "get_gate_current" in pp, (
+        "plan_passage description must cross-reference get_gate_current"
     )
-    assert "list_gates" in gpg, (
-        "get_passage_gates description must cross-reference list_gates"
+    assert "list_gates" in pp, (
+        "plan_passage description must cross-reference list_gates"
     )
 
     # list_gates: must be clearly for discovery/enumeration and name siblings.
     lg = descs["list_gates"]
-    assert "get_tidal_gate" in lg, (
-        "list_gates description must cross-reference get_tidal_gate"
+    assert "get_gate_current" in lg, (
+        "list_gates description must cross-reference get_gate_current"
     )
-    assert "get_passage_gates" in lg, (
-        "list_gates description must cross-reference get_passage_gates"
+    assert "plan_passage" in lg, (
+        "list_gates description must cross-reference plan_passage"
     )
 
 
@@ -94,17 +94,17 @@ async def test_build_server_names_it():
     assert server.name == "currents-mcp"
 
 
-async def test_dispatch_get_tidal_gate():
+async def test_dispatch_get_gate_current():
     result = await dispatch(_currents(CURRENTS_PAYLOAD), _tides(TIDES_PAYLOAD),
-                            "get_tidal_gate", {"name": "Dodd Narrows", "date": "2026-05-24"})
+                            "get_gate_current", {"name": "Dodd Narrows", "date": "2026-05-24"})
     assert result["name"] == "Dodd Narrows"
     assert result["slack_windows"][0]["utc"] == "2026-05-24T09:14:00Z"
 
 
-async def test_dispatch_get_passage_gates():
+async def test_dispatch_plan_passage():
     # Open-water destination routes through dispatch with no gates (empty gate list).
     result = await dispatch(_currents({"stations": []}), _tides(TIDES_PAYLOAD),
-                            "get_passage_gates", {"destination": "Desolation Sound"})
+                            "plan_passage", {"destination": "Desolation Sound"})
     assert result["destination"] == "Desolation Sound"
     assert result["gates"] == []
 

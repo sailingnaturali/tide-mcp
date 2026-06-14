@@ -5,7 +5,7 @@ MCP server exposing Pacific Northwest tidal-gate slack windows to agents. Tidal-
 
 ## Tools
 
-### `get_passage_gates(destination, depart_time?, from_lat?, from_lon?)`
+### `plan_passage(destination, depart_time?, from_lat?, from_lon?)`
 
 Maps a destination string to its ordered tidal gates, returns next slack windows for each gate, and a recommended departure time for the first gate.
 
@@ -43,7 +43,7 @@ Example response:
 }
 ```
 
-### `get_tidal_gate(name, date?)`
+### `get_gate_current(name, date?)`
 
 Returns the next 3 slack windows for a single named gate: `{"name", "slack_windows", "transit_window_minutes", "sets_display", "flood_dir_true", "ebb_dir_true"}`. Unknown gate name returns `{"unmatched": true, "suggestions_display": ...}`.
 
@@ -100,12 +100,12 @@ the next ~4 events at/after the query time are returned.
 
 ## Coverage
 
-**Destinations** (resolvable via `get_passage_gates`):
+**Destinations** (resolvable via `plan_passage`):
 
 - Gated: Nanaimo, Discovery Islands, Johnstone Strait via Discovery Passage, Cordero Channel, Friday Harbor.
 - Open water (no gates): Gulf Islands, Desolation Sound, Cortes Island, Campbell River.
 
-**Named tidal gates** (resolvable via `get_tidal_gate`):
+**Named tidal gates** (resolvable via `get_gate_current`):
 
 - BC: Dodd Narrows, Active Pass, Porlier Pass, Gabriola Passage, Seymour Narrows, Beazley Passage (Surge Narrows), Hole in the Wall, Gillard Passage, Dent Rapids.
 - US: Boundary Pass (San Juans / Friday Harbor).

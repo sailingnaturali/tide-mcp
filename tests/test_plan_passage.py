@@ -1,5 +1,5 @@
 from currents_mcp.currents_source import CurrentsClient
-from currents_mcp.tools import get_passage_gates
+from currents_mcp.tools import plan_passage
 
 # Gillard Passage is ~137 nm from Victoria -> ~23h at 6 kn. Departing 2026-05-24T00:00Z,
 # the earliest reachable slack must be ~23h out, so the slack lands on 2026-05-25.
@@ -23,7 +23,7 @@ def _client(payload):
 
 async def test_passage_multi_gate_first_gets_departure():
     currents = _client(PAYLOAD)
-    result = await get_passage_gates(currents, "Cordero Channel",
+    result = await plan_passage(currents, "Cordero Channel",
                                      depart_time="2026-05-24T00:00:00Z")
 
     assert result["destination"] == "Cordero Channel"
@@ -52,7 +52,7 @@ async def test_downstream_gate_windows_filtered_by_eta():
         PAYLOAD["stations"][0],
         {**PAYLOAD["stations"][1], "events": dent_events},
     ]}
-    result = await get_passage_gates(_client(payload), "Cordero Channel",
+    result = await plan_passage(_client(payload), "Cordero Channel",
                                      depart_time="2026-05-24T00:00:00Z")
     dent = result["gates"][1]
     assert all("2026-05-24" not in w["utc"] for w in dent["slack_windows"])
@@ -61,14 +61,14 @@ async def test_downstream_gate_windows_filtered_by_eta():
 
 async def test_passage_open_water_returns_empty_gates():
     currents = _client({"stations": []})
-    result = await get_passage_gates(currents, "Desolation Sound")
+    result = await plan_passage(currents, "Desolation Sound")
     assert result["gates"] == []
     assert "open-water" in result["summary_display"].lower()
 
 
 async def test_passage_unknown_destination():
     currents = _client({"stations": []})
-    result = await get_passage_gates(currents, "Atlantis")
+    result = await plan_passage(currents, "Atlantis")
     assert result.get("unmatched") is True
     assert "suggestions_display" in result
 
@@ -86,7 +86,7 @@ FRIDAY_PAYLOAD = {"stations": [
 
 async def test_passage_friday_harbor():
     currents = _client(FRIDAY_PAYLOAD)
-    result = await get_passage_gates(currents, "Friday Harbor",
+    result = await plan_passage(currents, "Friday Harbor",
                                      depart_time="2026-05-24T00:00:00Z")
     assert result["gates"][0]["name"] == "Boundary Pass"
     assert len(result["gates"][0]["slack_windows"]) >= 1
