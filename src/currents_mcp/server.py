@@ -55,7 +55,15 @@ def build_server(currents: CurrentsClient, tides: TidesClient) -> Server:
         return [
             types.Tool(
                 name="get_passage_gates",
-                description="Tidal gates, slack windows, and a recommended departure for a destination.",
+                description=(
+                    "Use this when planning a ROUTE to a destination — it returns every "
+                    "tidal gate along that route with slack windows and a recommended "
+                    "departure time. Input is a destination name (e.g. 'Desolation Sound', "
+                    "'Nanaimo'), not a gate name. "
+                    "Do NOT use this for the current at a single named gate or pass — "
+                    "use get_tidal_gate instead. "
+                    "Do NOT use this to find out which gates exist — use list_gates instead."
+                ),
                 inputSchema={
                     "type": "object",
                     "properties": {
@@ -69,11 +77,19 @@ def build_server(currents: CurrentsClient, tides: TidesClient) -> Server:
             ),
             types.Tool(
                 name="get_tidal_gate",
-                description="Next 3 slack windows for a single named tidal gate.",
+                description=(
+                    "Use this for the current (speed, direction, slack windows) at a "
+                    "SINGLE named tidal gate or pass, e.g. 'current at Boundary Pass', "
+                    "'what is Dodd Narrows doing', 'when is Seymour Narrows slack'. "
+                    "Input is the gate name. Returns the next 3 slack windows and flood/ebb "
+                    "set directions for that gate. "
+                    "Do NOT use this for route planning to a destination — use get_passage_gates instead. "
+                    "Do NOT use this to enumerate available gates — use list_gates instead."
+                ),
                 inputSchema={
                     "type": "object",
                     "properties": {
-                        "name": {"type": "string", "description": "Gate name, e.g. 'Dodd Narrows'."},
+                        "name": {"type": "string", "description": "Gate name, e.g. 'Dodd Narrows', 'Boundary Pass'."},
                         "date": {"type": "string", "description": "ISO date; defaults to today."},
                     },
                     "required": ["name"],
@@ -81,7 +97,14 @@ def build_server(currents: CurrentsClient, tides: TidesClient) -> Server:
             ),
             types.Tool(
                 name="list_gates",
-                description="Known destinations and the tidal gates they cover.",
+                description=(
+                    "Use this to discover which tidal gates and destinations are available "
+                    "— returns a catalog of known destinations and the gates that cover them. "
+                    "No live current data; use this when the user asks what gates or "
+                    "destinations are supported. "
+                    "Do NOT use this for the current at a specific gate — use get_tidal_gate instead. "
+                    "Do NOT use this for route planning — use get_passage_gates instead."
+                ),
                 inputSchema={"type": "object", "properties": {}},
             ),
             types.Tool(

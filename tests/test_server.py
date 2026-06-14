@@ -1,4 +1,5 @@
 import pytest
+import mcp.types as mcp_types
 
 from currents_mcp.currents_source import CurrentsClient
 from currents_mcp.server import DEFAULT_SIGNALK_URL, TOOL_NAMES, build_server, dispatch
@@ -36,6 +37,49 @@ def _tides(payload):
 
 def test_tool_names():
     assert TOOL_NAMES == ["get_passage_gates", "get_tidal_gate", "list_gates", "get_tide_heights"]
+
+
+async def test_tool_descriptions_disambiguate():
+    """Each gate tool description must name its siblings so weak models pick the right one.
+
+    Regression guard for the benchmark failure where 8–10B models called list_gates or
+    get_passage_gates when asked 'What's the current doing at Boundary Pass?' because the
+    three similarly-named tools had descriptions that didn't distinguish their use cases.
+    """
+    server = build_server(_currents({"stations": []}), _tides(TIDES_PAYLOAD))
+    handler = server.request_handlers[mcp_types.ListToolsRequest]
+    result = await handler(mcp_types.ListToolsRequest(method="tools/list", params=None))
+    descs = {t.name: t.description for t in result.root.tools}
+
+    # get_tidal_gate: must be clearly for single-gate current queries and name siblings.
+    gtg = descs["get_tidal_gate"]
+    assert "single" in gtg.lower() or "one" in gtg.lower(), (
+        "get_tidal_gate description must say it handles a single gate"
+    )
+    assert "get_passage_gates" in gtg, (
+        "get_tidal_gate description must cross-reference get_passage_gates"
+    )
+    assert "list_gates" in gtg, (
+        "get_tidal_gate description must cross-reference list_gates"
+    )
+
+    # get_passage_gates: must be clearly for route/destination planning and name siblings.
+    gpg = descs["get_passage_gates"]
+    assert "get_tidal_gate" in gpg, (
+        "get_passage_gates description must cross-reference get_tidal_gate"
+    )
+    assert "list_gates" in gpg, (
+        "get_passage_gates description must cross-reference list_gates"
+    )
+
+    # list_gates: must be clearly for discovery/enumeration and name siblings.
+    lg = descs["list_gates"]
+    assert "get_tidal_gate" in lg, (
+        "list_gates description must cross-reference get_tidal_gate"
+    )
+    assert "get_passage_gates" in lg, (
+        "list_gates description must cross-reference get_passage_gates"
+    )
 
 
 def test_default_signalk_url_targets_the_boat():
